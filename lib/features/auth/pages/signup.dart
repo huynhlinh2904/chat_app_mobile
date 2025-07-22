@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
-// import 'package:firebase_auth/firebase_auth.dart'; // Nếu dùng Firebase Auth
 
-import '../widgets/custombutton.dart';
-import '../widgets/customtextinput.dart';
+import '../../../core/widgets/custombutton.dart';
+import '../../../core/widgets/customtextinput.dart';
+
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});

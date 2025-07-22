@@ -1,16 +1,19 @@
-import 'package:chat_mobile_app/pages/chat_screen.dart';
-import 'package:chat_mobile_app/pages/demo_page.dart';
-import 'package:chat_mobile_app/pages/login.dart';
-import 'package:chat_mobile_app/pages/main_navigation_menu.dart';
-import 'package:chat_mobile_app/pages/profile_screen.dart';
-import 'package:chat_mobile_app/pages/signup.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'features/auth/pages/login.dart';
+import 'features/auth/pages/signup.dart';
+import 'features/chat/pages/chat_screen.dart';
+import 'features/chat/pages/main_navigation_menu.dart';
+import 'features/chat/pages/profile_screen.dart';
 
-import 'pages/test_call_api_list_user.dart';
 
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+      ProviderScope(
+        child: MyApp(),
+      ),
+  );
 }
 
 class MyApp extends StatelessWidget {

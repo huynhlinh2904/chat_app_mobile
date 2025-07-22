@@ -1,27 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
-import '../widgets/custombutton.dart';
-import '../widgets/customtextinput.dart';
 
-class ChatLoginPage extends StatefulWidget {
+import '../../../core/widgets/custombutton.dart';
+import '../../../core/widgets/customtextinput.dart';
+import '../authServices/login_provider.dart';
+
+class ChatLoginPage extends ConsumerStatefulWidget {
   const ChatLoginPage({super.key});
 
   @override
-  State<ChatLoginPage> createState() => _ChatLoginPageState();
+  ConsumerState<ChatLoginPage> createState() => _ChatLoginPageState();
 }
 
-class _ChatLoginPageState extends State<ChatLoginPage> with SingleTickerProviderStateMixin {
+class _ChatLoginPageState extends ConsumerState<ChatLoginPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
-
-  String email = 'abc@123';
+  String user = 'spadmin';
   String password = '1';
-  bool loggingIn = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this);
+
+    // Lắng nghe login state
+    // Future.microtask(() {
+    //
+    // });
   }
 
   @override
@@ -32,8 +38,39 @@ class _ChatLoginPageState extends State<ChatLoginPage> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final loginState = ref.watch(loginNotifierProvider);
+    ref.listen(loginNotifierProvider, (previous, next) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/main_navigation_menu');
+        Future.delayed(Duration(milliseconds: 500), () {
+          ref.read(loginNotifierProvider.notifier).reset();
+        });
+      });
+
+      if (next.error != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Lỗi đăng nhập'),
+              content: Text(next.error!),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    ref.read(loginNotifierProvider.notifier).reset();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        });
+      }
+    });
+
     return ModalProgressHUD(
-      inAsyncCall: loggingIn,
+      inAsyncCall: loginState.isLoading,
       child: SafeArea(
         child: Scaffold(
           backgroundColor: Colors.white,
@@ -68,18 +105,20 @@ class _ChatLoginPageState extends State<ChatLoginPage> with SingleTickerProvider
                     ),
                     SizedBox(height: MediaQuery.of(context).size.height * 0.01),
                     CustomTextInput(
-                      hintText: ' Tài khoản',
+                      hintText: 'Tài khoản',
                       leading: Icons.account_circle,
                       obscure: false,
                       keyboard: TextInputType.emailAddress,
-                      userTyped: (val) => email = val, onChanged: (String value) {  },
+                      userTyped: (val) => user = val,
+                      onChanged: (_) {},
                     ),
                     CustomTextInput(
                       hintText: 'Mật khẩu',
                       leading: Icons.lock,
                       obscure: true,
                       keyboard: TextInputType.text,
-                      userTyped: (val) => password = val, onChanged: (String value) {  },
+                      userTyped: (val) => password = val,
+                      onChanged: (_) {},
                     ),
                     const SizedBox(height: 30),
                     Hero(
@@ -89,12 +128,8 @@ class _ChatLoginPageState extends State<ChatLoginPage> with SingleTickerProvider
                         textColor: Colors.white,
                         mainColor: Colors.deepPurple,
                         onPress: () async {
-                          if (email =='abc@123' && password =='1') {
-                            setState(() {
-                              loggingIn = false;
-                            });
-                            Navigator.pushNamed(context, '/main_navigation_menu');
-                          }
+                          await ref.read(loginNotifierProvider.notifier).login(user, password);
+                          print('Login thành công, chuyển sang /main_navigation_menu');
                         },
                       ),
                     ),

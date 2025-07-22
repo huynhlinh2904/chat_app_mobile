@@ -1,6 +1,12 @@
-import 'package:chat_mobile_app/widgets/message_bubble.dart';
 import 'package:flutter/material.dart';
-import '../widgets/typing_indicator.dart';
+
+import '../../../core/widgets/message_bubble.dart';
+import '../../../core/widgets/typing_indicator.dart';
+
+
+
+
+
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
