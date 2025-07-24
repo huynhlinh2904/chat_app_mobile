@@ -1,9 +1,10 @@
+import 'dart:convert';
+import 'package:chat_mobile_app/core/constants/app_contain.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../../core/constants/flutter_secure_storage.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../core/network/dio_response.dart';
-import '../../models/login_response.dart';
+import '../../models/authModel/login_response.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
   final dio = ref.read(dioProvider);
@@ -14,20 +15,34 @@ class AuthService {
   final Dio dio;
   AuthService(this.dio);
 
-  Future<ApiResponse<LoginResponse>> login(String user, String password) async {
+  Future<LoginResponse?> login(String user, String password) async {
     try {
-      final response = await dio.post('/api/Authenticate/Login', data: {
+      final response = await dio.post(EndPoint.loginUrl, data: {
         'user': user,
-        'password': password.toString(),
+        'password': password,
       });
 
-      final data = LoginResponse.fromJson(response.data);
-      return ApiResponse.success(data);
+      dynamic raw = response.data;
+      if (raw is String) raw = jsonDecode(raw);
+
+      final data = LoginResponse.fromJson(raw);
+      final userInfo = data.userInfoList.first;
+
+      await LocalStorageService.saveLoginData(
+        token: data.token,
+        iddv: userInfo.iddv?.toString() ?? '',
+        sm1: userInfo.sm1 ?? '',
+        sm2: userInfo.sm2 ?? '',
+        quyen: userInfo.quyen ?? '',
+      );
+
+      return data;
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? 'login fail';
-      return ApiResponse.failure(msg);
+      print('Login failed: ${e.response?.data}');
+      return null;
     } catch (e) {
-      return ApiResponse.failure('server error');
+      print('Unexpected login error: $e');
+      return null;
     }
   }
 }

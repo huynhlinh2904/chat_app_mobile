@@ -1,33 +1,30 @@
 class LoginState {
   final bool isLoading;
-  final String? error;
   final bool success;
+  final String? error;
 
-  const LoginState({
-    this.isLoading = false,
+  LoginState({
+    required this.isLoading,
+    required this.success,
     this.error,
-    this.success = false,
   });
 
-  factory LoginState.idle() => const LoginState(
-    isLoading: false,
-    success: false,
-  );
+  factory LoginState.idle() => LoginState(isLoading: false, success: false, error: null);
+  factory LoginState.loading() => LoginState(isLoading: true, success: false, error: null);
+  factory LoginState.success() => LoginState(isLoading: false, success: true, error: null);
+  factory LoginState.error(String message) =>
+      LoginState(isLoading: false, success: false, error: message);
 
-  factory LoginState.loading() => const LoginState(
-    isLoading: true,
-    success: false,
-  );
-
-  factory LoginState.success() => const LoginState(
-    isLoading: false,
-    success: true,
-  );
-
-  factory LoginState.error(String message) => LoginState(
-    isLoading: false,
-    success: false,
-    error: message,
-  );
-
+  // 👇 Thêm hàm copyWith
+  LoginState copyWith({
+    bool? isLoading,
+    bool? success,
+    String? error,
+  }) {
+    return LoginState(
+      isLoading: isLoading ?? this.isLoading,
+      success: success ?? this.success,
+      error: error,
+    );
+  }
 }

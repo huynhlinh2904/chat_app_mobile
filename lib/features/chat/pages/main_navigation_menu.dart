@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'chat_list_screen.dart';
-import 'profile_screen.dart';
+import '../../auth/pages/profile_screen.dart';
 import 'menu_screen.dart';
 import 'explore_screen.dart';
 

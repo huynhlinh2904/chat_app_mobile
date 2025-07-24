@@ -46,6 +46,7 @@ dependencies:
   # Giao diện + hiệu ứng
   flutter_animate: ^4.5.0
   google_fonts: ^6.2.1
+  flutter_secure_storage: ^9.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
