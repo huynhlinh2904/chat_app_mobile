@@ -1,14 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'features/auth/pages/login.dart';
-import 'features/auth/pages/slash_screen.dart';
-import 'features/chat/pages/chat_screen.dart';
-import 'features/chat/pages/main_navigation_menu.dart';
-import 'features/auth/pages/profile_screen.dart';
+import 'features/chat/data/clients/signalr_client.dart';
+import 'features/chat/presentation/pages/chat_screen.dart';
+import 'features/auth/presentation/pages/login.dart';
+import 'features/pages/main_navigation_menu.dart';
+import 'features/pages/slash_screen.dart';
+import 'features/pages/profile_screen.dart';
 
 
 
-void main() {
+Future<void> main() async {
+  await SignalRService().initConnection();
   runApp(
       ProviderScope(
         child: MyApp(),

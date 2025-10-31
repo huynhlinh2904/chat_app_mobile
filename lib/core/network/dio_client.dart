@@ -6,7 +6,7 @@ import '../constants/flutter_secure_storage.dart';
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: EndPoint.baseUrl,
+      baseUrl: EndPoint.apiService,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       contentType: 'application/json',

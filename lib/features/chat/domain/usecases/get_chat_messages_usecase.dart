@@ -1,0 +1,21 @@
+import '../../../../core/utils/date_utils.dart';
+import '../entities/chat_get_message.dart';
+import '../repositories/chat_repository.dart';
+
+class GetChatMessagesUseCase {
+  final ChatRepository repository;
+  GetChatMessagesUseCase(this.repository);
+
+  Future<List<ChatGetMessage>> call({
+    required int idGroup,
+    String? dateOlder,
+    required int type,
+  }) {
+    final formattedDate = dateOlder ?? tomorrowSqlDate(); // ví dụ: '2099-01-01'
+    return repository.getMessages(
+      idGroup: idGroup,
+      dateOlder: formattedDate,
+      type: type,
+    );
+  }
+}
