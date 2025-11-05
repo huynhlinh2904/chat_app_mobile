@@ -105,20 +105,44 @@ class ChatMessageNotifier extends StateNotifier<AsyncValue<List<ChatGetMessage>>
   /// Upsert 1 message "thật" (từ API/Redis) theo idMessage
   void upsertApiMessage(ChatGetMessage msg) {
     final cur = state.value ?? <ChatGetMessage>[];
-    final map = <String, ChatGetMessage>{
-      for (final m in cur) '${m.idMessage}': m,
-    };
-    map['${msg.idMessage}'] = msg;
 
-    final merged = map.values.toList()
-      ..sort((a, b) {
-        final ad = a.dateSent ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bd = b.dateSent ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return ad.compareTo(bd);
-      });
+    // 🔹 Nếu message này đã tồn tại (idMessage trùng)
+    final alreadyExists = cur.any((m) => '${m.idMessage}' == '${msg.idMessage}');
+    if (alreadyExists) {
+      print("⚠️ [ChatMessagesNotifier] Duplicate message ${msg.idMessage} ignored.");
+      return;
+    }
 
-    state = AsyncValue.data(merged);
+    // 🔹 Nếu đây là message thật và có temp tương ứng (cùng content + sender)
+    final tempIndex = cur.indexWhere((m) =>
+    '${m.idMessage}'.startsWith('temp_') &&
+        m.idSender == msg.idSender &&
+        (m.content ?? '') == (msg.content ?? ''));
+
+    if (tempIndex != -1) {
+      // Cập nhật bản temp → thành bản thật
+      final updated = [...cur];
+      updated[tempIndex] = msg;
+      print("🔁 [ChatMessagesNotifier] Replace temp by server message ${msg.idMessage}");
+      state = AsyncValue.data(_sortMessages(updated));
+      return;
+    }
+
+    // 🔹 Nếu hoàn toàn mới → thêm vào
+    final updated = [...cur, msg];
+    state = AsyncValue.data(_sortMessages(updated));
+    print("✅ [ChatMessagesNotifier] Added new message ${msg.idMessage}");
   }
+
+  List<ChatGetMessage> _sortMessages(List<ChatGetMessage> list) {
+    list.sort((a, b) {
+      final ad = a.dateSent ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.dateSent ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return ad.compareTo(bd);
+    });
+    return list;
+  }
+
 
   /// Xoá hết message tạm (id bắt đầu bằng temp_)
   void purgeTempMessages() {
