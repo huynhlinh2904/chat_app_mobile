@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'features/chat/data/clients/signalr_client.dart';
 import 'features/chat/presentation/pages/chat_screen.dart';
 import 'features/auth/presentation/pages/login.dart';
 import 'features/pages/main_navigation_menu.dart';
@@ -10,7 +9,6 @@ import 'features/pages/profile_screen.dart';
 
 
 Future<void> main() async {
-  await SignalRService().initConnection();
   runApp(
       ProviderScope(
         child: MyApp(),

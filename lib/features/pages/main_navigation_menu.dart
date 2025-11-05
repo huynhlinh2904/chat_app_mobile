@@ -1,5 +1,7 @@
+import 'package:chat_mobile_app/core/constants/flutter_secure_storage.dart';
 import 'package:chat_mobile_app/features/pages/profile_screen.dart';
 import 'package:flutter/material.dart';
+import '../chat/data/clients/signalr_client.dart';
 import '../chat/presentation/pages/chat_list_group_screen.dart';
 import '../chat/presentation/pages/chat_list_user_screen.dart';
 import 'explore_screen.dart';
@@ -21,6 +23,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const ProfileScreen(),// Tab Menu
     const ChatExploreSimpleScreen(),   // Tab Khám phá
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initSignalr();
+  }
+
+  Future<void> _initSignalr() async{
+    final token = await LocalStorageService.getToken();;
+    if (token == null || token.isEmpty) {
+      throw Exception("Token không hợp lệ hoặc trống");
+    }
+    await SignalRService().initConnection(token);
+  }
 
   @override
   Widget build(BuildContext context) {

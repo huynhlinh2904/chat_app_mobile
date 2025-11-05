@@ -1,3 +1,6 @@
+import 'dart:ffi';
+
+import 'package:chat_mobile_app/core/constants/flutter_secure_storage.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +11,6 @@ import '../providers/chat_get_message_redis_notifier.dart';
 import '../providers/chat_messages_notifier.dart';
 import '../providers/chat_send_messages_notifier.dart';
 import '../../../../../core/utils/date_utils.dart';
-import '../providers/chat_send_messages_state.dart';
 import '../providers/combined_messages_provider.dart';
 import '../providers/get_message_id_by_uuid_provider.dart';
 
@@ -37,32 +39,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
 
-    // ref.listen<ChatSendMessagesState>(chatSendMessagesProvider, (prev, next) async {
-    //   if (!mounted) return;
-    //   if (next is ChatSendLoading) {
-    //     debugPrint('✉️ sending...');
-    //   } else if (next is ChatSendSuccess) {
-    //     // ❗ Xoá toàn bộ tin tạm (id bắt đầu bằng temp_)
-    //     ref.read(chatSendMessagesProvider.notifier).sendMessage();
-    //
-    //     // 🔁 Refresh để lấy tin thật (lấy mốc ngày "ngày mai" cho chắc)
-    //     if (idGroup != null) {
-    //       final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)))
-    //       await ref.read(chatMessageProvider.notifier).fetchMessages(
-    //         idGroup: idGroup!,
-    //         dateOlder: dateOlder,
-    //       );
-    //     }
-    //
-    //     _scrollToBottom();
-    //   } else if (next is ChatSendError) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text('Lỗi gửi tin: ${next.message}')),
-    //     );
-    //     // Nếu muốn: xoá tin tạm bị fail
-    //     ref.read(chatMessageProvider.notifier).sendMessage();
-    //   }
-    // });
     Future.microtask(() async {
       if (!mounted) return;
       final routeArgs = ModalRoute.of(context)?.settings.arguments;
@@ -139,53 +115,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (mounted) setState(() {});// hide spinner
   }
 
-  // void _sendMessage() {
-  //   final text = _messageController.text.trim();
-  //   if (text.isEmpty || idGroup == null) return;
-  //
-  //   final idSender = 1; // TODO: lấy từ LocalStorageService
-  //   const fullName = 'Tôi';
-  //   final idMessage = const Uuid().v4();
-  //
-  //   // Hiển thị tạm
-  //   ref.read(chatMessageProvider.notifier).appendLocalMessage(
-  //     idGroup: idGroup!,
-  //     content: text,
-  //     idSender: idSender,
-  //     fullNameUser: fullName,
-  //     idMessageOverride: idMessage,
-  //   );
-  //
-  //   // Gửi thật
-  //   ref.read(chatSendMessagesProvider.notifier).sendMessage(
-  //     idGroup: idGroup!,
-  //     idMessage: idMessage,
-  //     content: text,
-  //     type: 0,
-  //     idSender: idSender,
-  //     fullNameUser: fullName,
-  //     ref: ref,
-  //     typeMessage: 0,
-  //   );
-  //
-  //   _messageController.clear();
-  //   setState(() => _isTyping = false);
-  //   _scrollToBottom();
-  // }
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || idGroup == null) return;
 
-    final idSender = 1;
-    const fullName = 'Tôi';
+    final idSender = await LocalStorageService.getIDUser();
+    final fullName = await LocalStorageService.getFullNameUser();
     final uuid = const Uuid().v4();           // client UUID
 
     // 1) append local
     ref.read(chatMessageProvider.notifier).appendLocalMessage(
       idGroup: idGroup!,
       content: text,
-      idSender: idSender,
-      fullNameUser: fullName,
+      idSender: idSender as int,
+      fullNameUser: fullName as String,
       idMessageOverride: 'temp_$uuid',        // giữ pattern này
     );
 
@@ -196,7 +139,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       content: text,
       type: 0,
       idSender: idSender,
-      fullNameUser: fullName,
+      fullNameUser: fullName ?? "",
       ref: ref,
       typeMessage: 0,
     );

@@ -24,26 +24,40 @@ class AuthRepositoryImpl implements AuthRepository {
       dynamic raw = response.data;
       if (raw is String) raw = jsonDecode(raw);
 
+      print("📦 [AuthRepositoryImpl] raw API response: $raw");
+
       if (raw is! Map || raw['TYPE'] != 'SUCCESS') {
         final msg = (raw is Map ? raw['MESSAGE'] : null)?.toString() ?? 'Đăng nhập thất bại';
         throw Exception(msg);
       }
 
+      // ✅ Lấy dữ liệu gốc từ JSON
+      final message = raw['MESSAGE'];
+      final userList = message?['USER_INFO'] as List?;
+      final userData = (userList != null && userList.isNotEmpty)
+          ? userList.first as Map<String, dynamic>
+          : null;
+
+      final fullName = userData?['FULLNAME_USER']?.toString() ?? '';
+      final avatar = userData?['IMG_AVA']?.toString() ?? '';
+
+      // ✅ Parse DTO nếu cần
       final dto = LoginResponseDto.fromJson(raw as Map<String, dynamic>);
       final entity = dto.toEntity();
 
-      // Lưu session
-      final u = entity.users.isNotEmpty ? entity.users.first : null;
+      // ✅ Lưu session (ưu tiên lấy từ JSON gốc cho chắc)
       await LocalStorageService.saveLoginData(
         token: entity.token,
-        iddv: u?.orgId ?? 1,
-        sm1: u?.code1 ?? '',
-        sm2: u?.code2 ?? '',
-        quyen: u?.role ?? '',
-        user: u?.userId ?? 0,
-        fullNameUser: u?.fullNameUser ?? '',
-        avatarUrl: u?.avatarUrl ?? '',
+        iddv: int.tryParse(userData?['IDDV'].toString() ?? '0') ?? 0,
+        sm1: userData?['SM1']?.toString() ?? '',
+        sm2: userData?['SM2']?.toString() ?? '',
+        quyen: userData?['QUYEN']?.toString() ?? '',
+        user: int.tryParse(userData?['ID_USER'].toString() ?? '0') ?? 0,
+        fullNameUser: fullName,
+        avatarUrl: avatar,
       );
+
+      print("💾 Saved LoginData → FULLNAME_USER=$fullName | IMG_AVA=$avatar");
 
       return entity;
     } on DioException catch (e) {
@@ -53,6 +67,7 @@ class AuthRepositoryImpl implements AuthRepository {
       throw Exception(e.toString());
     }
   }
+
 
   @override
   Future<void> logout() async {

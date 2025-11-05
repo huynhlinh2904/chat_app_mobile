@@ -335,43 +335,23 @@ class ChatGroupTile extends StatelessWidget {
 
 /// ====== Helper: Tên hiển thị cho group / 1-1 ======
 String displayName(ChatGroup g, int? currentUserId) {
-  String fallback(String? s) =>
-      (s == null || s.trim().isEmpty) ? 'Không tên' : s.trim();
+  String safe(String? s) => (s == null || s.trim().isEmpty) ? 'Không tên' : s.trim();
 
-  // Debug log tạm để kiểm tra
-  // (chỉ in khi là chat 1:1)
-  if (g.isGroup == 0) {
-    debugPrint(
-        '🟩 DEBUG displayName -> groupId=${g.idGroup}, idUser1=${g.idUser1}, idUser2=${g.idUser2}, currentUserId=$currentUserId');
-  }
+  // Nếu là nhóm
+  if (g.isGroup == 1) return safe(g.groupName);
 
-  // Nếu là nhóm -> dùng groupName
-  if (g.isGroup == 1) {
-    return fallback(g.groupName);
-  }
-
-  // Nếu là 1:1
+  // Nếu là chat 1:1
   final id1 = g.idUser1;
   final id2 = g.idUser2;
 
-  if (currentUserId != null && id1 == currentUserId) {
-    return fallback(g.userName2);
+  // Nếu biết user hiện tại
+  if (currentUserId != null) {
+    if (currentUserId == id1) return safe(g.userName2);
+    if (currentUserId == id2) return safe(g.userName1);
   }
 
-  if (currentUserId != null && id2 == currentUserId) {
-    return fallback(g.userName1);
-  }
-
-  // Nếu không trùng, log ra để xem dữ liệu thực
-  debugPrint(
-      '⚠️ Không trùng ID: idUser1=$id1, idUser2=$id2, current=$currentUserId -> fallback=${g.userName1}/${g.userName2}');
-  if (id1 != currentUserId && (g.userName1 ?? '').isNotEmpty) {
-    return fallback(g.userName1);
-  }
-  if (id2 != currentUserId && (g.userName2 ?? '').isNotEmpty) {
-    return fallback(g.userName2);
-  }
-
-  return fallback(g.groupName);
+  // Nếu không trùng ID nào (dữ liệu lỗi hoặc currentUserId chưa set)
+  // => fallback: ưu tiên userName2 trước
+  return safe(g.userName2 ?? g.userName1);
 }
 

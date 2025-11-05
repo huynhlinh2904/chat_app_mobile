@@ -13,7 +13,6 @@ class LocalStorageService {
   static const _keyFullNameUser = 'FULLNAME_USER';
   static const _keyAvatarUrl = 'IMG_AVA';
 
-
   // Save all login data
   static Future<void> saveLoginData({
     required String token,
@@ -33,7 +32,6 @@ class LocalStorageService {
     await _storage.write(key: _keyUser, value: user.toString());
     await _storage.write(key: _keyFullNameUser, value: fullNameUser);
     await _storage.write(key: _keyAvatarUrl, value: avatarUrl);
-
   }
 
   // Getters
@@ -46,16 +44,41 @@ class LocalStorageService {
     final value = await _storage.read(key: _keyUser);
     return value != null ? int.tryParse(value) : null;
   }
+
   static Future<String?> getToken() async => _storage.read(key: _keyToken);
   static Future<String?> getSM1() async => _storage.read(key: _keySM1);
   static Future<String?> getSM2() async => _storage.read(key: _keySM2);
   static Future<String?> getQuyen() async => _storage.read(key: _keyQuyen);
-  static Future<String?> getFullNameUser() async => _storage.read(key: _keyFullNameUser);
-  static Future<String?> getAvatarUrl() async => _storage.read(key: _keyAvatarUrl);
-
+  static Future<String?> getFullNameUser() async =>
+      _storage.read(key: _keyFullNameUser);
+  static Future<String?> getAvatarUrl() async =>
+      _storage.read(key: _keyAvatarUrl);
 
   // Clear all
   static Future<void> clear() async => _storage.deleteAll();
+  static Future<void> debugPrintLoginData() async {
+    final token = await getToken();
+    final iddv = await getIDDV();
+    final sm1 = await getSM1();
+    final sm2 = await getSM2();
+    final quyen = await getQuyen();
+    final user = await getIDUser();
+    final fullName = await getFullNameUser();
+    final avatar = await getAvatarUrl();
+
+    print("""
+=============================
+🔐 LOCAL STORAGE LOGIN DATA
+=============================
+Token: $token
+IDDV: $iddv
+SM1: $sm1
+SM2: $sm2
+Quyen: $quyen
+UserID: $user
+FullName: $fullName
+Avatar: $avatar
+=============================
+""");
+  }
 }
-
-
