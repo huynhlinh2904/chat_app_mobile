@@ -1,6 +1,6 @@
-import 'dart:ffi';
-
+import 'dart:async';
 import 'package:chat_mobile_app/core/constants/flutter_secure_storage.dart';
+import 'package:chat_mobile_app/features/chat/data/clients/signalr_client.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +24,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  StreamSubscription? _signalrSub;
 
   bool _isTyping = false;
   bool _isLoaded = false;
@@ -39,6 +40,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
 
+    // 🔹 Lắng nghe realtime từ SignalR
+    _signalrSub = SignalRService().events.listen((event) {
+      if (!mounted) return;
+
+      if (event['type'] == 'ReceiveMessage') {
+        final data = event['data'];
+        debugPrint("📩 [ChatScreen] ReceiveMessage raw: $data (${data.runtimeType})");
+        try {
+          if (data is Map<String, dynamic>) {
+            final msg = ChatGetMessage.fromJson(data);
+            ref.read(chatMessageProvider.notifier).upsertApiMessage(msg);
+            _scrollToBottom();
+          } else if (data is String) {
+            final parsed = ChatGetMessage.fromJsonString(data);
+            ref.read(chatMessageProvider.notifier).upsertApiMessage(parsed);
+            _scrollToBottom();
+          } else {
+            debugPrint("⚠️ Unknown data type: ${data.runtimeType}");
+          }
+        } catch (e) {
+          debugPrint("❌ Parse ReceiveMessage error: $e");
+        }
+      }
+    });
+
     Future.microtask(() async {
       if (!mounted) return;
       final routeArgs = ModalRoute.of(context)?.settings.arguments;
@@ -51,14 +77,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       if (idGroup != null && !_isLoaded) {
         _isLoaded = true;
+
+        // 🔹 Join vào nhóm để nhận tin nhắn realtime
+        await SignalRService().joinConversation(idGroup!);
+
         final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)));
 
-        // 🚀 gọi song song: DB + Redis
         await Future.wait([
           ref.read(chatMessageProvider.notifier).fetchMessages(
               idGroup: idGroup!, dateOlder: dateOlder, type: 0),
-          ref.read(chatGetMessageRedisProvider.notifier).fetchMessageRedis(
-              idGroup: idGroup!),
+          ref.read(chatGetMessageRedisProvider.notifier)
+              .fetchMessageRedis(idGroup: idGroup!),
         ]);
       }
     });
@@ -67,22 +96,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _onScroll() {
     if (!_hasMore || _isLoadingMore || !_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    // reverse: true ⇒ đỉnh list = maxScrollExtent
     final nearTop = pos.pixels >= (pos.maxScrollExtent - 56);
     if (nearTop) _loadOlder();
   }
 
   Future<void> _loadOlder() async {
     if (idGroup == null) return;
-      _isLoadingMore = true;
-    if (mounted) setState(() {}); // show spinner
+    _isLoadingMore = true;
+    if (mounted) setState(() {});
 
-    final prevState = ref.read(combinedMessagesProvider); // đã merge DB+Redis
+    final prevState = ref.read(combinedMessagesProvider);
     final prevMsgs = prevState.value ?? <ChatGetMessage>[];
     final beforeLen = prevMsgs.length;
-    final prevMax = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0.0;
+    final prevMax = _scrollController.hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
 
-    // Lấy mốc cũ nhất hiện có (bỏ null)
     DateTime oldest = DateTime.now();
     if (prevMsgs.isNotEmpty) {
       for (final m in prevMsgs) {
@@ -97,7 +126,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       dateOlder: dateOlder,
     );
 
-    // Giữ vị trí cuộn mượt
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       final newMax = _scrollController.position.maxScrollExtent;
@@ -107,12 +135,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _scrollController.jumpTo(nextOffset);
     });
 
-    // Hết dữ liệu? (không tăng độ dài)
     final afterLen = ref.read(chatMessageProvider).value?.length ?? beforeLen;
     if (afterLen == beforeLen) _hasMore = false;
 
     _isLoadingMore = false;
-    if (mounted) setState(() {});// hide spinner
+    if (mounted) setState(() {});
   }
 
   Future<void> _sendMessage() async {
@@ -121,30 +148,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final idSender = await LocalStorageService.getIDUser();
     final fullName = await LocalStorageService.getFullNameUser();
-    final uuid = const Uuid().v4();           // client UUID
+    final uuid = const Uuid().v4();
 
-    // 1) append local
     ref.read(chatMessageProvider.notifier).appendLocalMessage(
       idGroup: idGroup!,
       content: text,
-      idSender: idSender as int,
-      fullNameUser: fullName as String,
-      idMessageOverride: 'temp_$uuid',        // giữ pattern này
+      idSender: idSender ?? 0,
+      fullNameUser: fullName ?? "Unknown",
+      idMessageOverride: 'temp_$uuid',
     );
 
-    // 2) gửi thật (truyền kèm uuid lên BE)
     ref.read(chatSendMessagesProvider.notifier).sendMessage(
       idGroup: idGroup!,
-      idMessage: uuid,        // <-- GỬI UUID (server sẽ map sang int)
+      idMessage: uuid,
       content: text,
       type: 0,
-      idSender: idSender,
+      idSender: idSender ?? 0 ,
       fullNameUser: fullName ?? "",
       ref: ref,
       typeMessage: 0,
     );
 
-    // 3) bắt đầu resolve mapping để thay temp
     _resolveUuidAndReplace(uuid);
 
     _messageController.clear();
@@ -153,7 +177,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _resolveUuidAndReplace(String uuid) async {
-    // Poll tối đa 8 lần: 200ms, 300ms, 500ms, 800ms, 1.2s, 1.8s, 2.5s, 3.5s
     final delays = [200, 300, 500, 800, 1200, 1800, 2500, 3500];
     for (final d in delays) {
       if (_disposed) return;
@@ -161,27 +184,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final id = await ref.read(getMessageIdByUuidUseCaseProvider).call(uuid);
       if (id != null) {
         if (_disposed) return;
-        // thay thế temp_UUID -> ID_MESSAGE
         ref.read(chatMessageProvider.notifier).replaceTempWithServerId(
           uuid: uuid,
           idMessage: id,
         );
-        // không cần giữ temp nữa (đã đổi id)
-        // nếu bạn có hàm purgeTempMessages cũng ok, nhưng không bắt buộc ở đây
         return;
       }
     }
-    // Không resolve được → giữ nguyên tin temp, để DB/Redis về sau tự ghi đè
   }
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 200), () {
-      if (!_scrollController.hasClients) return
-        _scrollController.animateTo(
-          0, // vì reverse: true
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -247,19 +266,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             final isDeleted = msg.statusMess == 999;
             final text = isDeleted ? 'Tin nhắn đã bị xoá' : (msg.content ?? '');
 
-            // Hiển thị mờ/xám nếu đã xoá (hoặc return SizedBox.shrink() để ẩn hoàn toàn)
             return Opacity(
               opacity: isDeleted ? 0.6 : 1,
               child: MessageBubble(
                 text: text,
-                isMe: msg.idSender == 1,
+                isMe: msg.idSender == 1, // TODO: thay 1 = id user hiện tại
                 time: msg.dateSent ?? DateTime.now(),
                 avatarUrl: msg.avatarImg ?? 'https://i.pravatar.cc/150?u=${msg.idSender}',
               ),
             );
           },
         ),
-
         if (_isLoadingMore)
           Positioned(
             top: 8,
@@ -345,6 +362,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _messageController.dispose();
+    _signalrSub?.cancel();
+    _disposed = true;
     super.dispose();
   }
 }

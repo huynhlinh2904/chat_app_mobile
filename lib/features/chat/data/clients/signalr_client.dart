@@ -7,10 +7,10 @@ class SignalRService {
   factory SignalRService() => _instance;
   SignalRService._internal();
 
-  late HubConnection hubConnection;
-  final _eventStream = StreamController<Map<String, dynamic>>.broadcast();
+  static final _eventStream = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get events => _eventStream.stream;
 
+  late HubConnection hubConnection;
   bool isConnected = false;
 
   Future<void> initConnection(String token) async {
@@ -25,10 +25,8 @@ class SignalRService {
         .withAutomaticReconnect()
         .build();
 
-    // 🔹 Đăng ký các event từ server
     _registerHandlers();
 
-    // 🔹 Lắng nghe trạng thái kết nối
     hubConnection.onreconnecting(({error}) {
       isConnected = false;
       print('🟠 Reconnecting... $error');
@@ -55,9 +53,9 @@ class SignalRService {
       try {
         await hubConnection.start();
         isConnected = true;
-        print("Connected to SignalR [${hubConnection.connectionId}]");
+        print("✅ Connected to SignalR [${hubConnection.connectionId}]");
       } catch (e) {
-        print("Connection failed, retrying in 5s: $e");
+        print("⚠️ Connection failed, retrying in 5s: $e");
         await Future.delayed(const Duration(seconds: 5));
       }
     }
@@ -65,16 +63,26 @@ class SignalRService {
 
   Future<void> _tryReconnect() async {
     if (hubConnection.state != HubConnectionState.Connected) {
-      print("Attempting manual reconnect...");
+      print("🔁 Attempting manual reconnect...");
       await _startConnection();
     }
   }
 
-  /// 🔸 Các event SignalR giống bản Web
   void _registerHandlers() {
     hubConnection.on("ReceiveMessage", (args) {
-      final message = args?.first;
-      _eventStream.add({'type': 'ReceiveMessage', 'data': message});
+      print("📩 [SignalR] Raw ReceiveMessage args: $args");
+      if (args == null || args.isEmpty) {
+        print("⚠️ [SignalR] ReceiveMessage args is null or empty");
+        return;
+      }
+
+      final message = args.first;
+      print("✅ [SignalR] Parsed first argument: $message (${message.runtimeType})");
+
+      _eventStream.add({
+        'type': 'ReceiveMessage',
+        'data': message,
+      });
     });
 
     hubConnection.on("UserStatusChanged", (args) {
@@ -106,9 +114,18 @@ class SignalRService {
     });
   }
 
-  /// 🔹 Join lại tất cả nhóm khi reconnect
+  /// ✅ Gọi hàm này sau khi mở ChatScreen
+  Future<void> joinConversation(int groupId) async {
+    try {
+      print("➡️ [SignalR] Joining group: $groupId");
+      await hubConnection.invoke("JoinConversation", args: [groupId.toString()]);
+      print("✅ [SignalR] Joined group $groupId");
+    } catch (e) {
+      print("❌ [SignalR] JoinConversation error for group $groupId: $e");
+    }
+  }
+
   Future<void> _rejoinConversations() async {
-    // giả sử bạn có service lưu cache groupId
     final allGroups = await _loadCachedGroups();
     for (final group in allGroups) {
       try {
@@ -132,9 +149,9 @@ class SignalRService {
     }
   }
 
+  /// ⚠️ KHÔNG ĐƯỢC close eventStream (vì nhiều màn hình lắng nghe)
   Future<void> stop() async {
     await hubConnection.stop();
-    await _eventStream.close();
     print("🛑 SignalR stopped");
   }
 }
