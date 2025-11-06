@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:chat_mobile_app/core/constants/flutter_secure_storage.dart';
 import 'package:chat_mobile_app/features/chat/data/clients/signalr_client.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../core/widgets/message_bubble.dart';
 import '../../../../../core/widgets/typing_indicator.dart';
@@ -91,6 +93,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ]);
       }
     });
+
   }
 
   void _onScroll() {
@@ -98,6 +101,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final pos = _scrollController.position;
     final nearTop = pos.pixels >= (pos.maxScrollExtent - 56);
     if (nearTop) _loadOlder();
+  }
+
+  Future<void> _showAttachmentOptions() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo, color: Colors.deepPurple),
+                title: const Text('Gửi ảnh'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final picker = ImagePicker();
+                  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                  if (image != null) {
+                    _handleFilePicked(File(image.path));
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
+                title: const Text('Gửi tệp'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final picker = ImagePicker();
+                  final XFile? file = await picker.pickMedia();
+                  if (file != null) {
+                    _handleFilePicked(File(file.path));
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+// 🔹 Hàm riêng để xử lý file hoặc ảnh sau khi chọn
+  void _handleFilePicked(File file) async {
+    debugPrint("📎 [FilePicker] Selected file: ${file.path}");
+
+    final idUser = await LocalStorageService.getIDUser();
+    final fullName = await LocalStorageService.getFullNameUser();
+
+    ref.read(chatMessageProvider.notifier).appendLocalMessage(
+      idGroup: idGroup ?? 0,
+      content: '📎 ${file.path.split('/').last}', // hoặc hiển thị preview
+      idSender: idUser ?? 0,
+      fullNameUser: fullName ?? 'Unknown',
+      typeMessage: 1, // ví dụ 1 = file/ảnh
+    );
+
+    // 🔸 Gợi ý sau này:
+    // await ref.read(chatSendMessagesProvider.notifier).sendFile(file, idGroup);
   }
 
   Future<void> _loadOlder() async {
@@ -310,6 +373,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       child: Row(
         children: [
+          IconButton(
+              onPressed: _showAttachmentOptions,
+              icon: const Icon(Icons.add_circle_outline, color: Colors.deepPurple,)),
           Expanded(
             child: TextField(
               controller: _messageController,
