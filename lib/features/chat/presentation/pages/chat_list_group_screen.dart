@@ -123,9 +123,9 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       );
 
                       if (selected == 'group') {
-                        Navigator.pushNamed(context, '/create_group');
+                        Navigator.pushNamed(context, '/chat_create_group');
                       } else if (selected == 'project') {
-                        Navigator.pushNamed(context, '/create_project_group');
+                        Navigator.pushNamed(context, '/chat_create_project_group');
                       }
                     },
                   );

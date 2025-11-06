@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'core/services/app_initializer.dart';
+import 'features/chat/presentation/pages/chat_create_group.dart';
+import 'features/chat/presentation/pages/chat_create_project_group.dart';
 import 'features/chat/presentation/pages/chat_screen.dart';
 import 'features/auth/presentation/pages/login.dart';
 import 'features/pages/main_navigation_menu.dart';
@@ -39,6 +41,8 @@ class MyApp extends StatelessWidget {
         '/chat_screen': (context) => const ChatScreen(),
         '/main_navigation_menu': (context) => MainNavigationScreen(),
         '/profile_screen': (context) => ProfileScreen(),
+        '/chat_create_group': (context) => CreateGroupScreen(),
+        '/chat_create_project_group': (context) => CreateProjectGroupScreen(),
       }
     );
   }
