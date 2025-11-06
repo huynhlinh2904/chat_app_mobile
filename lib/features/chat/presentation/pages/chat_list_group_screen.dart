@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../../core/widgets/chat_search_header.dart';
 import '../../../../core/widgets/soft_avatar.dart';
 import '../../domain/entities/chat_group.dart';
@@ -59,13 +58,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
 
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButton: _tab.index == 1
-          ? FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, '/create_group'),
-        tooltip: 'Tạo nhóm mới',
-        child: const Icon(Icons.group_add),
-      )
-          : null,
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () => Navigator.pushNamed(context, '/create_group'),
+      //   tooltip: 'Tạo nhóm mới',
+      //   child: const Icon(Icons.group_add),
+      // ),
       body: SafeArea(
         child: Column(
           children: [
@@ -79,6 +76,61 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                   setState(() => _query = v.trim());
                 });
               },
+              trailing: Builder(
+                builder: (context) {
+                  return IconButton(
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    tooltip: 'Tạo nhóm mới',
+                    onPressed: () async {
+                      final RenderBox button = context.findRenderObject() as RenderBox;
+                      final RenderBox overlay =
+                      Overlay.of(context).context.findRenderObject() as RenderBox;
+
+                      // 📍 Lấy vị trí icon trên màn hình
+                      final Offset position = button.localToGlobal(Offset.zero, ancestor: overlay);
+                      final Size size = button.size;
+
+                      // 📍 Tính vị trí popup: ngay bên dưới icon
+                      final RelativeRect positionBelow = RelativeRect.fromLTRB(
+                        position.dx,
+                        position.dy + size.height + 4, // khoảng cách 4px dưới icon
+                        overlay.size.width - position.dx - size.width,
+                        0,
+                      );
+
+                      final selected = await showMenu<String>(
+                        context: context,
+                        position: positionBelow,
+                        color: Colors.white,
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        items: [
+                          const PopupMenuItem<String>(
+                            value: 'group',
+                            child: ListTile(
+                              leading: Icon(Icons.group, color: Colors.deepPurple),
+                              title: Text('Tạo nhóm'),
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'project',
+                            child: ListTile(
+                              leading: Icon(Icons.business_center, color: Colors.blue),
+                              title: Text('Tạo nhóm dự án'),
+                            ),
+                          ),
+                        ],
+                      );
+
+                      if (selected == 'group') {
+                        Navigator.pushNamed(context, '/create_group');
+                      } else if (selected == 'project') {
+                        Navigator.pushNamed(context, '/create_project_group');
+                      }
+                    },
+                  );
+                },
+              ),
             ),
 
             /// ===== Tabs =====
@@ -106,7 +158,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                   unselectedLabelColor: Colors.black54,
                   tabs: const [
                     Tab(text: 'Nhóm'),
-                    Tab(text: 'Chưa đọc'),
+                    Tab(text: 'Nhóm dự án'),
                   ],
                 ),
               ),
@@ -136,7 +188,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       ),
                     ),
                   ),
-                  const Center(child: Text('Chưa có tin nhắn chưa đọc')),
+                  const Center(child: Text('Chưa có nhóm dự án')),
                 ],
               ),
             ),
@@ -181,7 +233,7 @@ class ChatGroupsListView extends StatelessWidget {
       child: ListView.separated(
         controller: controller,
         physics: const BouncingScrollPhysics(),
-        padding: padding,
+        padding: padding.copyWith(bottom: padding.bottom + 100),
         cacheExtent: 1000,
         itemCount: filtered.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
