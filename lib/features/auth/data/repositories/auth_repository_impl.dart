@@ -53,8 +53,11 @@ class AuthRepositoryImpl implements AuthRepository {
         sm2: userData?['SM2']?.toString() ?? '',
         quyen: userData?['QUYEN']?.toString() ?? '',
         user: int.tryParse(userData?['ID_USER'].toString() ?? '0') ?? 0,
-        fullNameUser: fullName,
-        avatarUrl: avatar,
+        fullNameUser: userData?['FULLNAME_USER']?.toString() ?? '',
+        avatarUrl: userData?['IMG_AVA']?.toString() ?? '',
+        tenPb: userData?['TEN_PB']?.toString(),
+        tenDv: userData?['TENDONVI']?.toString(),
+        idPb: int.tryParse(userData?['ID_PB']?.toString() ?? ''),
       );
 
       print("💾 Saved LoginData → FULLNAME_USER=$fullName | IMG_AVA=$avatar");

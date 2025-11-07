@@ -1,14 +1,13 @@
 import 'package:chat_mobile_app/features/chat/data/clients/signalr_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../../core/constants/flutter_secure_storage.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../../../core/network/dio_client.dart';
-
+import 'current_user_provider.dart';
 import 'login_state.dart';
 
 /// ================================
@@ -32,6 +31,7 @@ StateNotifierProvider<LoginNotifier, LoginState>((ref) {
   return LoginNotifier(
     ref.read(loginUseCaseProvider),
     ref.read(logoutUseCaseProvider),
+    ref,
   );
 });
 
@@ -41,32 +41,40 @@ StateNotifierProvider<LoginNotifier, LoginState>((ref) {
 class LoginNotifier extends StateNotifier<LoginState> {
   final LoginUseCase _login;
   final LogoutUseCase _logout;
+  final Ref _ref;
 
-  LoginNotifier(this._login, this._logout) : super(LoginState.idle());
+  LoginNotifier(this._login, this._logout, this._ref)
+      : super(LoginState.idle());
 
   /// ================================
   /// 🔐 LOGIN FLOW
   /// ================================
   Future<void> login(
-      BuildContext context, String username, String password) async {
+      BuildContext context,
+      String username,
+      String password,
+      ) async {
     state = LoginState.loading();
     try {
-      // 1️⃣ Thực hiện login API
+      // 1️⃣ Gọi login API
       await _login(username, password);
 
-      // 2️⃣ Lấy token mới lưu trong LocalStorage
+      // 2️⃣ Lấy token đã lưu
       final token = await LocalStorageService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception("Token không hợp lệ hoặc trống");
       }
 
-      // 3️⃣ Kết nối SignalR bằng token
+      // 3️⃣ Kết nối SignalR
       await SignalRService().initConnection(token);
 
-      // 4️⃣ In toàn bộ thông tin đăng nhập đã lưu
+      // 4️⃣ In toàn bộ thông tin đã lưu
       await LocalStorageService.debugPrintLoginData();
 
-      // 5️⃣ Chuyển sang màn hình chính
+      // 🟢 5️⃣ Refresh lại thông tin người dùng (Profile)
+      _ref.invalidate(currentUserProvider);
+
+      // 6️⃣ Chuyển đến màn hình chính
       state = LoginState.success();
       Navigator.pushReplacementNamed(context, '/main_navigation_menu')
           .then((_) => reset());
@@ -83,6 +91,7 @@ class LoginNotifier extends StateNotifier<LoginState> {
   Future<void> logout(BuildContext context) async {
     await _logout();
     await LocalStorageService.clear();
+    _ref.invalidate(currentUserProvider); // 🧹 clear provider user
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
 
@@ -102,11 +111,12 @@ class LoginNotifier extends StateNotifier<LoginState> {
         content: Text(m),
         actions: [
           TextButton(
-              onPressed: () {
-                Navigator.of(c).pop();
-                reset();
-              },
-              child: const Text('OK')),
+            onPressed: () {
+              Navigator.of(c).pop();
+              reset();
+            },
+            child: const Text('OK'),
+          ),
         ],
       ),
     );

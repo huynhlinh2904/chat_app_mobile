@@ -12,8 +12,11 @@ class LocalStorageService {
   static const _keyUser = 'ID_USER';
   static const _keyFullNameUser = 'FULLNAME_USER';
   static const _keyAvatarUrl = 'IMG_AVA';
+  static const _keyTenPb = 'TEN_PB';
+  static const _keyTenDv = 'TENDONVI';
+  static const _keyIdPb = 'ID_PB';
 
-  // Save all login data
+  // ✅ Save all login data
   static Future<void> saveLoginData({
     required String token,
     required int iddv,
@@ -23,6 +26,9 @@ class LocalStorageService {
     required int user,
     required String fullNameUser,
     required String avatarUrl,
+    String? tenPb,
+    String? tenDv,
+    int? idPb,
   }) async {
     await _storage.write(key: _keyToken, value: token);
     await _storage.write(key: _keyIDDV, value: iddv.toString());
@@ -32,9 +38,12 @@ class LocalStorageService {
     await _storage.write(key: _keyUser, value: user.toString());
     await _storage.write(key: _keyFullNameUser, value: fullNameUser);
     await _storage.write(key: _keyAvatarUrl, value: avatarUrl);
+    await _storage.write(key: _keyTenPb, value: tenPb ?? '');
+    await _storage.write(key: _keyTenDv, value: tenDv ?? '');
+    await _storage.write(key: _keyIdPb, value: idPb?.toString() ?? '');
   }
 
-  // Getters
+  // ✅ Getters
   static Future<int?> getIDDV() async {
     final value = await _storage.read(key: _keyIDDV);
     return value != null ? int.tryParse(value) : null;
@@ -53,9 +62,13 @@ class LocalStorageService {
       _storage.read(key: _keyFullNameUser);
   static Future<String?> getAvatarUrl() async =>
       _storage.read(key: _keyAvatarUrl);
+  static Future<String?> getTenPb() async => _storage.read(key: _keyTenPb);
+  static Future<String?> getTenDv() async => _storage.read(key: _keyTenDv);
+  static Future<String?> getIdPb() async => _storage.read(key: _keyIdPb);
 
-  // Clear all
+  // ✅ Clear all
   static Future<void> clear() async => _storage.deleteAll();
+
   static Future<void> debugPrintLoginData() async {
     final token = await getToken();
     final iddv = await getIDDV();
@@ -65,6 +78,9 @@ class LocalStorageService {
     final user = await getIDUser();
     final fullName = await getFullNameUser();
     final avatar = await getAvatarUrl();
+    final tenpb = await getTenPb();
+    final tendv = await getTenDv();
+    final idpb = await getIdPb();
 
     print("""
 =============================
@@ -78,6 +94,9 @@ Quyen: $quyen
 UserID: $user
 FullName: $fullName
 Avatar: $avatar
+TEN_PB: $tenpb
+TENDONVI: $tendv
+ID_PB: $idpb
 =============================
 """);
   }

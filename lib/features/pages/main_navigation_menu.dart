@@ -63,7 +63,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu),
-            label: 'Menu',
+            label: 'Cá nhân',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore),
