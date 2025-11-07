@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:chat_mobile_app/features/chat/data/dtos/chat_get_message_redis_response_dto.dart';
-import 'package:chat_mobile_app/features/chat/data/dtos/chat_update_one_to_group.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_get_message_redis_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_message_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_send_message_mapper.dart';
@@ -9,16 +8,17 @@ import 'package:chat_mobile_app/features/chat/data/mappers/chat_user_mapper.dart
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message_redis.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_send_message.dart';
 import 'package:dio/dio.dart';
-import 'package:chat_mobile_app/core/constants/app_contain.dart' ;// dùng EndPoint + getChatCredentials
+import 'package:chat_mobile_app/core/constants/app_contain.dart';
 import '../../domain/entities/chat_get_message.dart';
+import '../../domain/entities/chat_get_user_duan.dart';
 import '../../domain/entities/chat_update_one_to_group.dart';
 import '../../domain/entities/chat_user.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/entities/chat_group.dart';
+import '../dtos/chat_get_user_by_duan_response_dto.dart';
 import '../dtos/chat_group_response_dto.dart';
 import '../dtos/chat_message_response_dto.dart';
 import '../dtos/chat_send_message_dto.dart';
-import '../dtos/chat_update_one_to_group.dart';
 import '../dtos/chat_update_one_to_group.dart' as dto;
 import '../dtos/chat_user_response_dto.dart';
 import '../mappers/chat_group_mapper.dart';
@@ -186,6 +186,50 @@ class ChatRepositoryImpl implements ChatRepository {
       return null;
     }
   }
+  // ===============================
+  // 🔹 GET USER BY DỰ ÁN
+  // ===============================
+  @override
+  Future<List<ChatGetUserDuan>> getUserByDuan({
+    required int idDv,
+    required String sm1,
+    required String sm2,
+    required int idUser,
+    int type = 0,
+  }) async {
+    try {
+      final res = await _dio.post(
+        EndPoint.getUserByDuanUrl,
+        data: {
+          "IDDV": idDv,
+          "SM1": sm1,
+          "SM2": sm2,
+          "ID_USER": idUser,
+          "TYPE": 0
+        },
+      );
+
+      dynamic data = res.data;
+      if (data is String) data = jsonDecode(data);
+
+      if (data is! Map || data['TYPE'] != 'SUCCESS') {
+        throw Exception('❌ Không thể tải danh sách người dùng dự án');
+      }
+
+      // ✅ Gọi đúng class với alias
+      final dtoResponse = ChatGetUserByDuanResponseDto.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+      return dtoResponse.toEntities();
+    } on DioException catch (e) {
+      throw Exception('🌐 Lỗi kết nối: ${e.message}');
+    } catch (e) {
+      throw Exception('⚠️ Lỗi không xác định: $e');
+    }
+  }
+
+
+
 
 
   // phần post update
@@ -250,25 +294,14 @@ class ChatRepositoryImpl implements ChatRepository {
         'TYPE': type,
       };
 
-      // Log nhẹ
-      // print('[chatUpdateOneToGroup] POST ${EndPoint.chatUpdateOneToGroupAPI} payload=$payload');
-
       final res = await _dio.post(EndPoint.chatUpdateOneToGroupAPI, data: payload);
 
       dynamic raw = res.data;
       if (raw is String) raw = jsonDecode(raw);
-
-      // Response mẫu:
-      // {
-      //   "TYPE": "SUCCESS",
-      //   "MESSAGE": [ { "IDDV":1,"SM1":"000001","SM2":"000000","ID_GROUP":1,"ID_USER1":1,"ID_USER2":4 } ]
-      // }
       final envelope = dto.ChatUpdateOneToGroup.fromJson(raw as Map<String, dynamic>);
       final items = envelope.messages.map((e) => e.toEntity()).toList(); // → List<ChatUpdateOneToGroupE>
       return items;
     } on DioException catch (e) {
-      // print lỗi chi tiết nếu cần
-      // print('❌ DioException type=${e.type} code=${e.response?.statusCode} uri=${e.requestOptions.uri}');
       rethrow;
     } catch (e) {
       rethrow;

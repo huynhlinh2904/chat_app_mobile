@@ -233,7 +233,7 @@ class ChatGroupsListView extends StatelessWidget {
       child: ListView.separated(
         controller: controller,
         physics: const BouncingScrollPhysics(),
-        padding: padding.copyWith(bottom: padding.bottom + 100),
+        padding: padding,
         cacheExtent: 1000,
         itemCount: filtered.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),

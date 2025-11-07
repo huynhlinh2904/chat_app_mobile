@@ -11,6 +11,7 @@ class EndPoint {
   static const chatGetMessageRedisAPI = "$apiService/api/Chat/CHAT_get_Message_Redis";
   static const sendMessageAPI = "$apiService/api/Chat/CHAT_update_MESSAGE";
   static const chatUpdateOneToGroupAPI = "$apiService/api/Chat/CHAT_update_OneToGroups";
+  static const getUserByDuanUrl = "$apiService/api/Chat/CHAT_get_NV_DUAN";
 }
 
 class LinkImage {
