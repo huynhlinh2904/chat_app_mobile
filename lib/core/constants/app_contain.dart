@@ -3,7 +3,7 @@ import 'flutter_secure_storage.dart';
 class EndPoint {
   static const apiService ='http://10.0.2.2:5003';
   static const chatHubUrl = '$apiService/ChatHub';
-  static const MainHost = "http://ser.megacheck.vn/GKERP_HOST/";
+  static const MainHost = "https://testser.megacde.vn/GKERP_HOST/DEMO";
   //static const apiService = 'https://api.megacde.vn/buildapi';
   static const loginUrl = '$apiService/api/Authenticate/Login';
   static const chatListUserAPI = '$apiService/api/Chat/CHAT_get_DMNhanVien';
