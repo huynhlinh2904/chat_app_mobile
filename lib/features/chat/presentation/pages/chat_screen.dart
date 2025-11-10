@@ -150,6 +150,130 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _isLoadingMore = false;
     if (mounted) setState(() {});
   }
+  void _showMessageMenu(ChatGetMessage msg) async {
+    final idUser = await LocalStorageService.getIDUser();
+    final isMe = msg.idSender == idUser;
+    final isDeleted = msg.statusMess == 999;
+
+    final actions = <Widget>[];
+
+    // ✅ 1. Luôn có "Phản hồi"
+    actions.add(
+      ListTile(
+        leading: const Icon(Icons.reply, color: Colors.blue),
+        title: const Text('Phản hồi'),
+        onTap: () {
+          Navigator.pop(context);
+          debugPrint('💬 Reply to ${msg.idMessage}');
+        },
+      ),
+    );
+
+    // ✅ 2. Nếu là tin của bản thân
+    if (isMe) {
+      if (!isDeleted) {
+        // ➕ Chưa xóa → cho phép "Xóa tin nhắn"
+        actions.add(
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: Colors.red),
+            title: const Text('Xóa tin nhắn'),
+            onTap: () {
+              Navigator.pop(context);
+              debugPrint('🗑️ Delete message ${msg.idMessage}');
+              // TODO: Gọi provider/API xóa tin nhắn
+            },
+          ),
+        );
+      } else {
+        // ➕ Đã xóa → cho phép "Khôi phục tin nhắn"
+        actions.add(
+          ListTile(
+            leading: const Icon(Icons.restore, color: Colors.green),
+            title: const Text('Khôi phục tin nhắn'),
+            onTap: () {
+              Navigator.pop(context);
+              debugPrint('🔁 Restore message ${msg.idMessage}');
+              // TODO: Gọi provider/API khôi phục tin nhắn
+            },
+          ),
+        );
+      }
+    }
+
+    // ✅ 3. Nếu là tin nhắn người khác → chỉ hiện "Phản hồi" (đã thêm ở trên)
+
+    // Nếu chỉ có 1 hành động → vẫn show gọn đẹp
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: actions,
+          ),
+        );
+      },
+    );
+  }
+
+  void _showReactionBar(ChatGetMessage msg) async {
+    final overlay = Overlay.of(context);
+    if (overlay == null) return;
+
+    late OverlayEntry overlayEntry; // ✅ khai báo trước
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: GestureDetector(
+          onTap: () => overlayEntry.remove(),
+          child: Container(
+            color: Colors.black.withOpacity(0.2),
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final emoji in ['👍', '❤️', '😂', '😮', '😢', '👎'])
+                      GestureDetector(
+                        onTap: () {
+                          debugPrint('💬 React ${msg.idMessage} with $emoji');
+                          overlayEntry.remove();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 26),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(overlayEntry);
+  }
+
+
 
   // 🔹 Gửi tin nhắn text
   Future<void> _sendMessage() async {
@@ -302,10 +426,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
   }
-
   Widget _buildMessageList(List<ChatGetMessage> messages) {
     if (messages.isEmpty) {
-      return const Center(child: Text('Chưa có tin nhắn nào', style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text('Chưa có tin nhắn nào', style: TextStyle(color: Colors.grey)),
+      );
     }
 
     return Stack(
@@ -321,18 +446,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             final msg = messages[messages.length - 1 - index];
             final isDeleted = msg.statusMess == 999;
             final text = isDeleted ? 'Tin nhắn đã bị xoá' : (msg.content ?? '');
+            final isMe = msg.idSender == 1; // TODO: thay bằng ID user thật
 
-            return Opacity(
-              opacity: isDeleted ? 0.6 : 1,
-              child: MessageBubble(
-                text: text,
-                isMe: msg.idSender == 1,
-                time: msg.dateSent ?? DateTime.now(),
-                avatarUrl: msg.avatarImg ?? 'https://i.pravatar.cc/150?u=${msg.idSender}',
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment:
+                isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                children: [
+                  Flexible(
+                    child: GestureDetector(
+                      onLongPress: () {
+                        _showReactionBar(msg);
+                        _showMessageMenu(msg);
+                      },
+
+                      child: MessageBubble(
+                        text: text,
+                        isMe: isMe,
+                        time: msg.dateSent ?? DateTime.now(),
+                        avatarUrl: msg.avatarImg ??
+                            'https://i.pravatar.cc/150?u=${msg.idSender}',
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           },
         ),
+
         if (_isLoadingMore)
           Positioned(
             top: 8,
@@ -340,7 +484,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
@@ -356,6 +501,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ],
     );
   }
+
+
 
   Widget _buildInputBar() {
     return Container(
