@@ -35,6 +35,7 @@ class ChatMessageNotifier extends StateNotifier<AsyncValue<List<ChatGetMessage>>
       final fetched = await _usecase.call(
         idGroup: idGroup,
         dateOlder: dateOlder,
+        limit: 10,
         type: type,
       );
 

@@ -33,7 +33,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   bool _disposed = false;
+  bool _initialLoadDone = false;
 
+  DateTime? _lastLoadTime;
   int? idGroup;
   String? groupName;
 
@@ -41,26 +43,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _hasMore = true;
 
-    // 🔹 Lắng nghe realtime từ SignalR
+    // 🔹 Listen SignalR realtime
     _signalrSub = SignalRService().events.listen((event) {
       if (!mounted) return;
-
       if (event['type'] == 'ReceiveMessage') {
         final data = event['data'];
-        debugPrint("📩 [ChatScreen] ReceiveMessage raw: $data (${data.runtimeType})");
         try {
-          if (data is Map<String, dynamic>) {
-            final msg = ChatGetMessage.fromJson(data);
-            ref.read(chatMessageProvider.notifier).upsertApiMessage(msg);
-            _scrollToBottom();
-          } else if (data is String) {
-            final parsed = ChatGetMessage.fromJsonString(data);
-            ref.read(chatMessageProvider.notifier).upsertApiMessage(parsed);
-            _scrollToBottom();
-          } else {
-            debugPrint("⚠️ Unknown data type: ${data.runtimeType}");
-          }
+          final msg = data is Map<String, dynamic>
+              ? ChatGetMessage.fromJson(data)
+              : ChatGetMessage.fromJsonString(data.toString());
+          ref.read(chatMessageProvider.notifier).upsertApiMessage(msg);
+          _scrollToBottom();
         } catch (e) {
           debugPrint("❌ Parse ReceiveMessage error: $e");
         }
@@ -69,10 +64,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     Future.microtask(() async {
       if (!mounted) return;
-      final routeArgs = ModalRoute.of(context)?.settings.arguments;
-      if (routeArgs is Map<String, dynamic>) {
-        idGroup = routeArgs['idGroup'] as int?;
-        groupName = (routeArgs['groupName'] as String?) ?? 'Nhóm mặc định';
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic>) {
+        idGroup = args['idGroup'] as int?;
+        groupName = (args['groupName'] as String?) ?? 'Nhóm mặc định';
       } else {
         groupName = 'Nhóm mặc định';
       }
@@ -80,92 +75,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (idGroup != null && !_isLoaded) {
         _isLoaded = true;
 
-        // 🔹 Join vào nhóm để nhận tin nhắn realtime
         await SignalRService().joinConversation(idGroup!);
-
         final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)));
 
         await Future.wait([
-          ref.read(chatMessageProvider.notifier).fetchMessages(
-              idGroup: idGroup!, dateOlder: dateOlder, type: 0),
+          ref.read(chatMessageProvider.notifier)
+              .fetchMessages(idGroup: idGroup!, dateOlder: dateOlder, type: 0),
           ref.read(chatGetMessageRedisProvider.notifier)
               .fetchMessageRedis(idGroup: idGroup!),
         ]);
+
+        _initialLoadDone = true;
       }
     });
-
   }
 
+  // 🔹 Detect scroll lên để load cũ
   void _onScroll() {
-    if (!_hasMore || _isLoadingMore || !_scrollController.hasClients) return;
+    if (!_initialLoadDone || !_hasMore || _isLoadingMore || !_scrollController.hasClients) return;
+
     final pos = _scrollController.position;
-    final nearTop = pos.pixels >= (pos.maxScrollExtent - 56);
-    if (nearTop) _loadOlder();
-  }
+    const threshold = 80.0;
 
-  Future<void> _showAttachmentOptions() async {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (_) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo, color: Colors.deepPurple),
-                title: const Text('Gửi ảnh'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final picker = ImagePicker();
-                  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) {
-                    _handleFilePicked(File(image.path));
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
-                title: const Text('Gửi tệp'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final picker = ImagePicker();
-                  final XFile? file = await picker.pickMedia();
-                  if (file != null) {
-                    _handleFilePicked(File(file.path));
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-// 🔹 Hàm riêng để xử lý file hoặc ảnh sau khi chọn
-  void _handleFilePicked(File file) async {
-    debugPrint("📎 [FilePicker] Selected file: ${file.path}");
-
-    final idUser = await LocalStorageService.getIDUser();
-    final fullName = await LocalStorageService.getFullNameUser();
-
-    ref.read(chatMessageProvider.notifier).appendLocalMessage(
-      idGroup: idGroup ?? 0,
-      content: '📎 ${file.path.split('/').last}', // hoặc hiển thị preview
-      idSender: idUser ?? 0,
-      fullNameUser: fullName ?? 'Unknown',
-      typeMessage: 1, // ví dụ 1 = file/ảnh
-    );
-
-    // 🔸 Gợi ý sau này:
-    // await ref.read(chatSendMessagesProvider.notifier).sendFile(file, idGroup);
+    // Với reverse: true, đầu danh sách (tin cũ) nằm ở maxScrollExtent
+    final nearTop = pos.pixels >= (pos.maxScrollExtent - threshold);
+    if (nearTop) {
+      final now = DateTime.now();
+      if (_lastLoadTime != null &&
+          now.difference(_lastLoadTime!).inMilliseconds < 800) return;
+        _lastLoadTime = now;
+      _loadOlder();
+    }
   }
 
   Future<void> _loadOlder() async {
-    if (idGroup == null) return;
-    _isLoadingMore = true;
+    if (idGroup == null || _isLoadingMore || !_hasMore) return;
+      _isLoadingMore = true;
     if (mounted) setState(() {});
 
     final prevState = ref.read(combinedMessagesProvider);
@@ -175,6 +120,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? _scrollController.position.maxScrollExtent
         : 0.0;
 
+    // Lấy message cũ nhất hiện có
     DateTime oldest = DateTime.now();
     if (prevMsgs.isNotEmpty) {
       for (final m in prevMsgs) {
@@ -182,13 +128,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (d != null && d.isBefore(oldest)) oldest = d;
       }
     }
+
     final dateOlder = formatSqlDate(oldest);
 
     await ref.read(chatMessageProvider.notifier).fetchMessages(
       idGroup: idGroup!,
       dateOlder: dateOlder,
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       final newMax = _scrollController.position.maxScrollExtent;
@@ -205,6 +151,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (mounted) setState(() {});
   }
 
+  // 🔹 Gửi tin nhắn text
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || idGroup == null) return;
@@ -226,7 +173,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       idMessage: uuid,
       content: text,
       type: 0,
-      idSender: idSender ?? 0 ,
+      idSender: idSender ?? 0,
       fullNameUser: fullName ?? "",
       ref: ref,
       typeMessage: 0,
@@ -242,35 +189,83 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _resolveUuidAndReplace(String uuid) async {
     final delays = [200, 300, 500, 800, 1200, 1800, 2500, 3500];
     for (final d in delays) {
-      if (_disposed) return;
-      await Future.delayed(Duration(milliseconds: d));
+      if (_disposed) return
+        await Future.delayed(Duration(milliseconds: d));
       final id = await ref.read(getMessageIdByUuidUseCaseProvider).call(uuid);
       if (id != null) {
-        if (_disposed) return;
-        ref.read(chatMessageProvider.notifier).replaceTempWithServerId(
-          uuid: uuid,
-          idMessage: id,
-        );
+        if (_disposed) return
+          ref.read(chatMessageProvider.notifier)
+              .replaceTempWithServerId(uuid: uuid, idMessage: id);
         return;
-      }
+      };
     }
   }
 
+  // 🔹 Cuộn xuống đáy (tin mới)
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 200), () {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      if (!_scrollController.hasClients) return
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
     });
   }
 
+  // 🔹 Gửi file/ảnh
+  Future<void> _showAttachmentOptions() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo, color: Colors.deepPurple),
+              title: const Text('Gửi ảnh'),
+              onTap: () async {
+                Navigator.pop(context);
+                final picker = ImagePicker();
+                final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                if (image != null) _handleFilePicked(File(image.path));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
+              title: const Text('Gửi tệp'),
+              onTap: () async {
+                Navigator.pop(context);
+                final picker = ImagePicker();
+                final XFile? file = await picker.pickMedia();
+                if (file != null) _handleFilePicked(File(file.path));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleFilePicked(File file) async {
+    debugPrint("📎 [FilePicker] ${file.path}");
+    final idUser = await LocalStorageService.getIDUser();
+    final fullName = await LocalStorageService.getFullNameUser();
+    ref.read(chatMessageProvider.notifier).appendLocalMessage(
+      idGroup: idGroup ?? 0,
+      content: '📎 ${file.path.split('/').last}',
+      idSender: idUser ?? 0,
+      fullNameUser: fullName ?? 'Unknown',
+      typeMessage: 1,
+    );
+  }
+
+  // 🔹 UI render
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(combinedMessagesProvider);
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -310,9 +305,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildMessageList(List<ChatGetMessage> messages) {
     if (messages.isEmpty) {
-      return const Center(
-        child: Text('Chưa có tin nhắn nào', style: TextStyle(color: Colors.grey)),
-      );
+      return const Center(child: Text('Chưa có tin nhắn nào', style: TextStyle(color: Colors.grey)));
     }
 
     return Stack(
@@ -333,7 +326,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               opacity: isDeleted ? 0.6 : 1,
               child: MessageBubble(
                 text: text,
-                isMe: msg.idSender == 1, // TODO: thay 1 = id user hiện tại
+                isMe: msg.idSender == 1,
                 time: msg.dateSent ?? DateTime.now(),
                 avatarUrl: msg.avatarImg ?? 'https://i.pravatar.cc/150?u=${msg.idSender}',
               ),
@@ -374,8 +367,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       child: Row(
         children: [
           IconButton(
-              onPressed: _showAttachmentOptions,
-              icon: const Icon(Icons.add_circle_outline, color: Colors.deepPurple,)),
+            onPressed: _showAttachmentOptions,
+            icon: const Icon(Icons.add_circle_outline, color: Colors.deepPurple),
+          ),
           Expanded(
             child: TextField(
               controller: _messageController,
@@ -396,32 +390,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildError(String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 48),
-          const SizedBox(height: 12),
-          const Text('Lỗi tải tin nhắn', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(error, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-              if (idGroup != null) {
-                final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)));
-                ref.read(chatMessageProvider.notifier)
-                    .fetchMessages(idGroup: idGroup!, dateOlder: dateOlder);
-              }
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Thử lại'),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildError(String error) => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.error_outline, color: Colors.red, size: 48),
+        const SizedBox(height: 12),
+        const Text('Lỗi tải tin nhắn', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(error, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          onPressed: () {
+            if (idGroup != null) {
+              final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)));
+              ref.read(chatMessageProvider.notifier)
+                  .fetchMessages(idGroup: idGroup!, dateOlder: dateOlder);
+            }
+          },
+          icon: const Icon(Icons.refresh),
+          label: const Text('Thử lại'),
+        ),
+      ],
+    ),
+  );
 
   @override
   void dispose() {

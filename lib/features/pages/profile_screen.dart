@@ -23,11 +23,11 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: credsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('❌ Lỗi tải credentials: $e')),
+        error: (e, _) => Center(child: Text('Lỗi tải credentials: $e')),
         data: (creds) {
           return userAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('❌ Lỗi tải dữ liệu user: $e')),
+            error: (e, _) => Center(child: Text('Lỗi tải dữ liệu user: $e')),
             data: (user) {
               if (user == null || user.isEmpty) {
                 return const Center(child: Text('Không tìm thấy thông tin người dùng'));

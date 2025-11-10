@@ -9,6 +9,7 @@ class GetChatMessagesUseCase {
   Future<List<ChatGetMessage>> call({
     required int idGroup,
     String? dateOlder,
+    int? limit = 10,
     required int type,
   }) {
     final formattedDate = dateOlder ?? tomorrowSqlDate(); // ví dụ: '2099-01-01'
