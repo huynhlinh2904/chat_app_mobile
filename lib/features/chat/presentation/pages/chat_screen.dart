@@ -45,6 +45,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollController.addListener(_onScroll);
     _hasMore = true;
 
+    Future.microtask(() {
+      ref.read(chatMessageProvider.notifier).clearMessages();
+      ref.read(chatGetMessageRedisProvider.notifier).clearMessages();
+      ref.refresh(combinedMessagesProvider);
+    });
+
     // 🔹 Listen SignalR realtime
     _signalrSub = SignalRService().events.listen((event) {
       if (!mounted) return;
@@ -88,6 +94,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _initialLoadDone = true;
       }
     });
+
+
   }
 
   // 🔹 Detect scroll lên để load cũ
