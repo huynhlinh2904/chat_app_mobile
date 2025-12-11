@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LocalStorageService {
   static const _storage = FlutterSecureStorage();
+
+  static const _keyUsername  = "enc_username";
+  static const _keyPassword  = "enc_password";
 
   // Keys
   static const _keyToken = 'Token';
@@ -16,7 +21,33 @@ class LocalStorageService {
   static const _keyTenDv = 'TENDONVI';
   static const _keyIdPb = 'ID_PB';
 
-  // ✅ Save all login data
+
+  static Future<void> saveEncryptedCredentials(String username, String password) async {
+    final encUser = base64Encode(utf8.encode(username));
+    final encPass = base64Encode(utf8.encode(password));
+
+    await _storage.write(key: _keyUsername, value: encUser);
+    await _storage.write(key: _keyPassword, value: encPass);
+  }
+
+  static Future<(String?, String?)> getEncryptedCredentials() async {
+    final u = await _storage.read(key: _keyUsername);
+    final p = await _storage.read(key: _keyPassword);
+
+    if (u == null || p == null) return (null, null);
+
+    return (
+    utf8.decode(base64Decode(u)),
+    utf8.decode(base64Decode(p)),
+    );
+  }
+
+  static Future<void> clearCredentials() async {
+    await _storage.delete(key: _keyUsername);
+    await _storage.delete(key: _keyPassword);
+  }
+
+  // Save all login data
   static Future<void> saveLoginData({
     required String token,
     required int iddv,
@@ -43,7 +74,7 @@ class LocalStorageService {
     await _storage.write(key: _keyIdPb, value: idPb?.toString() ?? '');
   }
 
-  // ✅ Getters
+  // Getters
   static Future<int?> getIDDV() async {
     final value = await _storage.read(key: _keyIDDV);
     return value != null ? int.tryParse(value) : null;
@@ -66,38 +97,7 @@ class LocalStorageService {
   static Future<String?> getTenDv() async => _storage.read(key: _keyTenDv);
   static Future<String?> getIdPb() async => _storage.read(key: _keyIdPb);
 
-  // ✅ Clear all
+  // Clear all
   static Future<void> clear() async => _storage.deleteAll();
 
-  static Future<void> debugPrintLoginData() async {
-    final token = await getToken();
-    final iddv = await getIDDV();
-    final sm1 = await getSM1();
-    final sm2 = await getSM2();
-    final quyen = await getQuyen();
-    final user = await getIDUser();
-    final fullName = await getFullNameUser();
-    final avatar = await getAvatarUrl();
-    final tenpb = await getTenPb();
-    final tendv = await getTenDv();
-    final idpb = await getIdPb();
-
-    print("""
-=============================
-🔐 LOCAL STORAGE LOGIN DATA
-=============================
-Token: $token
-IDDV: $iddv
-SM1: $sm1
-SM2: $sm2
-Quyen: $quyen
-UserID: $user
-FullName: $fullName
-Avatar: $avatar
-TEN_PB: $tenpb
-TENDONVI: $tendv
-ID_PB: $idpb
-=============================
-""");
-  }
 }

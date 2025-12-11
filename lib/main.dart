@@ -31,17 +31,19 @@ class MyApp extends StatelessWidget {
       title: 'Chat App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primarySwatch: Colors.teal,
+        useMaterial3: true,    // Tắt Material 3 để tránh lỗi nút không hiển thị
       ),
-      initialRoute: '/',
+      //home: CreateGroupMockupScreen(),
+      //home: CreateProjectGroupScreen(),
+      initialRoute: '/chat_create_group',
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const ChatLoginPage_DEV(),
         '/chat_screen': (context) => const ChatScreen(),
         '/main_navigation_menu': (context) => MainNavigationScreen(),
         '/profile_screen': (context) => ProfileScreen(),
-        '/chat_create_group': (context) => CreateGroupScreen(),
+        '/chat_create_group': (context) => CreateGroupMockupScreen(),
         '/chat_create_project_group': (context) => CreateProjectGroupScreen(),
       }
     );

@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:chat_mobile_app/features/chat/data/dtos/chat_get_message_redis_response_dto.dart';
+import 'package:chat_mobile_app/features/chat/data/mappers/chat_create_group_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_get_message_redis_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_message_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_send_message_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_update_one_to_group_mapper.dart';
 import 'package:chat_mobile_app/features/chat/data/mappers/chat_user_mapper.dart';
+import 'package:chat_mobile_app/features/chat/domain/entities/chat_create_group_entity.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message_redis.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_send_message.dart';
 import 'package:dio/dio.dart';
@@ -21,6 +23,8 @@ import '../dtos/chat_message_response_dto.dart';
 import '../dtos/chat_send_message_dto.dart';
 import '../dtos/chat_update_one_to_group.dart' as dto;
 import '../dtos/chat_user_response_dto.dart';
+import '../dtos/create_group_request_dto.dart';
+import '../dtos/create_group_response_dto.dart';
 import '../mappers/chat_group_mapper.dart';
 
 class ChatRepositoryImpl implements ChatRepository {
@@ -307,4 +311,48 @@ class ChatRepositoryImpl implements ChatRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<List<ChatCreateGroupEntity>> createGroup(CreateGroupRequestDTO dto) async {
+    try {
+      // 1. Lấy credentials chung (giống chatUpdateOneToGroup)
+      final creds = await getChatCredentials();
+      if (creds == null) {
+        throw Exception('Thiếu thông tin xác thực (IDDV/SM1/SM2/ID_USER)');
+      }
+
+      // 2. Ghép payload chung với dto.toJson()
+      final payload = {
+        ...dto.toJson(),
+        'IDDV': creds.iddv,
+        'SM1': creds.sm1,
+        'SM2': creds.sm2,
+        'ID_USER': creds.userId,
+        'CURRENT_USER': creds.userId,
+      };
+
+      // 3. Gửi request
+      final res = await _dio.post(
+        EndPoint.createGroup,  // dùng endpoint chuẩn
+        data: payload,
+      );
+
+      // 4. Chuẩn hóa response: server có thể trả về String JSON → parse lại
+      dynamic raw = res.data;
+      if (raw is String) raw = jsonDecode(raw);
+
+      // 5. Parse DTO Envelope
+      final envelope = ChatCreateGroupResponseDTO.fromJson(raw);
+
+      // 6. Convert DTO → Entity
+      final items = envelope.message.map((e) => e.toEntity()).toList();
+
+      return items;
+    } on DioException catch (e) {
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
 }

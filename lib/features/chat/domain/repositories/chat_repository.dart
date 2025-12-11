@@ -1,4 +1,6 @@
+import 'package:chat_mobile_app/features/chat/domain/entities/chat_create_group_entity.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message_redis.dart';
+import '../../data/dtos/create_group_request_dto.dart';
 import '../entities/chat_get_user_duan.dart';
 import '../entities/chat_group.dart';
 import '../entities/chat_get_message.dart';
@@ -15,4 +17,5 @@ abstract class ChatRepository {
   Future<int?> getMessageIdByUuid(String uuid) async {return null;}
   Future<List<ChatUpdateOneToGroupE>> chatUpdateOneToGroup({required int idGroup, required int idSender, required int idReceive, int type = 0,  });
   Future<List<ChatGetUserDuan>> getUserByDuan({required int idDv, required String sm1, required String sm2, required int idUser, int type = 0,});
+  Future<List<ChatCreateGroupEntity>> createGroup(CreateGroupRequestDTO request);
 }

@@ -1,201 +1,311 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/constants/app_contain.dart';
-import '../../domain/entities/chat_get_user_duan.dart';
-import '../providers/get_user_by_duan_notifier.dart';
-
-class CreateProjectGroupScreen extends ConsumerStatefulWidget {
+class CreateProjectGroupScreen extends StatefulWidget {
   const CreateProjectGroupScreen({super.key});
 
   @override
-  ConsumerState<CreateProjectGroupScreen> createState() =>
-      _CreateProjectGroupScreenState();
+  State<CreateProjectGroupScreen> createState() => _CreateProjectGroupScreenState();
 }
 
-class _CreateProjectGroupScreenState
-    extends ConsumerState<CreateProjectGroupScreen> {
+class _CreateProjectGroupScreenState extends State<CreateProjectGroupScreen> {
   final TextEditingController groupNameCtl = TextEditingController();
   final TextEditingController searchCtl = TextEditingController();
 
   XFile? _pickedImage;
+
   String? selectedProject;
   final Set<String> selectedEmployees = {};
 
-  @override
-  void initState() {
-    super.initState();
+  /// Mock danh sách dự án + nhân viên (KHÔNG GỌI API)
+  final List<Map<String, dynamic>> mockProjects = [
+    {
+      "project": "Dự án A - Xây dựng",
+      "employees": [
+        "Nguyễn Văn A",
+        "Trần Thị B",
+        "Lê Hoàng C",
+      ]
+    },
+    {
+      "project": "Dự án B - Điện lực",
+      "employees": [
+        "Phạm Quốc D",
+        "Đỗ Hải E",
+        "Trương Minh F",
+      ]
+    },
+    {
+      "project": "Dự án C - Hạ tầng",
+      "employees": [
+        "Nguyễn Văn K",
+        "Lê Minh H",
+      ]
+    }
+  ];
 
-    Future.microtask(() async {
-      // 🔹 Lấy thông tin xác thực lưu local
-      final creds = await getChatCredentials();
-      if (creds == null) {
-        debugPrint('⚠️ Không tìm thấy thông tin xác thực');
-        return;
-      }
-
-      // 🔹 Gọi API lấy danh sách người dùng theo dự án
-      ref.read(userByDuanNotifierProvider.notifier).fetch(
-        idDv: creds.iddv,
-        sm1: creds.sm1,
-        sm2: creds.sm2,
-        idUser: creds.userId,
-        type: 0,
-      );
-    });
-  }
+  final List<Color> pastelColors = [
+    Color(0xFFE8DFF5),
+    Color(0xFFFFF6BD),
+    Color(0xFFFFD6A5),
+    Color(0xFFFFB5A7),
+    Color(0xFFB8E0D2),
+    Color(0xFFCDEAC0),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final userByDuanState = ref.watch(userByDuanNotifierProvider);
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.white,
+
       appBar: AppBar(
-        backgroundColor: Colors.teal[400],
-        title: const Text('Tạo nhóm dự án'),
+        backgroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            color: Colors.white,
-            tooltip: 'Tạo nhóm',
-            onPressed: _createGroup,
-          ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          "Tạo nhóm dự án",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+      ),
+
+      body: Stack(
+        children: [
+          _buildMainUI(),
+          _buildBottomButton(),
         ],
       ),
-      body: userByDuanState.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Text('❌ Lỗi tải dữ liệu: $err',
-              style: const TextStyle(color: Colors.red)),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // MAIN UI CONTENT
+  // ------------------------------------------------------------
+  Widget _buildMainUI() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 90),
+      child: Column(
+        children: [
+          // Avatar nhóm
+          GestureDetector(
+            onTap: _pickImage,
+            child: CircleAvatar(
+              radius: 45,
+              backgroundColor: Colors.grey.shade200,
+              child: _pickedImage == null
+                  ? Icon(Icons.camera_alt, size: 32, color: Colors.grey)
+                  : ClipOval(
+                child: Image.file(
+                  File(_pickedImage!.path),
+                  width: 90,
+                  height: 90,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(height: 20),
+
+          // Tên nhóm
+          _filledField(groupNameCtl, "Tên nhóm..."),
+
+          SizedBox(height: 14),
+
+          // Search
+          _filledField(
+            searchCtl,
+            "Tìm kiếm nhân viên...",
+            prefix: Icon(Icons.search, color: Colors.grey),
+            onChanged: (_) => setState(() {}),
+          ),
+
+          SizedBox(height: 20),
+
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Thuộc dự án",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          SizedBox(height: 12),
+
+          _buildProjectDropdown(),
+
+          SizedBox(height: 20),
+
+          if (selectedProject != null) _buildEmployeeList(),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // DROPDOWN DỰ ÁN (MOCK)
+  // ------------------------------------------------------------
+  Widget _buildProjectDropdown() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: selectedProject,
+          hint: Text("Chọn dự án"),
+          items: mockProjects.map((p) {
+            return DropdownMenuItem(
+              value: p["project"] as String,
+              child: Text(
+                p["project"],
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            );
+          }).toList(),
+          onChanged: (v) => setState(() => selectedProject = v),
         ),
-        data: (projects) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                /// --- Nhập tên nhóm + Tìm kiếm ---
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: groupNameCtl,
-                        decoration: InputDecoration(
-                          hintText: 'Nhập tên nhóm...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: searchCtl,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.search),
-                          hintText: 'Tìm kiếm nhân viên',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                  ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // EMPLOYEE LIST UI (MOCK)
+  // ------------------------------------------------------------
+  Widget _buildEmployeeList() {
+    final project = mockProjects.firstWhere((p) => p["project"] == selectedProject);
+    final employees = (project["employees"] as List<String>)
+        .where((e) => e.toLowerCase().contains(searchCtl.text.toLowerCase()))
+        .toList();
+
+    return Column(
+      children: List.generate(employees.length, (i) {
+        final emp = employees[i];
+        final isSelected = selectedEmployees.contains(emp);
+
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 6),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              setState(() {
+                isSelected ? selectedEmployees.remove(emp) : selectedEmployees.add(emp);
+              });
+            },
+            child: Container(
+              padding: EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected ? Colors.teal : Colors.grey.shade300,
+                  width: isSelected ? 1.3 : 1,
                 ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: pastelColors[i % pastelColors.length],
+                    child: Icon(Icons.person, color: Colors.black87),
+                  ),
 
-                const SizedBox(height: 16),
+                  SizedBox(width: 14),
 
-                const Text(
-                  'Danh sách nhân viên dự án',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-
-                /// --- Danh sách dự án thật ---
-                Expanded(child: _buildEmployeeListFromApi(projects)),
-
-                const SizedBox(height: 16),
-
-                /// --- Ảnh nhóm ---
-                const Text(
-                  'Ảnh nhóm (tùy chọn)',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-
-                Row(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey[400]!),
-                        color: Colors.grey[200],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: _pickedImage != null
-                            ? Image.file(
-                          File(_pickedImage!.path),
-                          fit: BoxFit.cover,
-                        )
-                            : const Center(
-                          child: Icon(Icons.image,
-                              color: Colors.grey, size: 32),
-                        ),
-                      ),
+                  Expanded(
+                    child: Text(
+                      emp,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      onPressed: _showImagePickerOptions,
-                      icon: const Icon(Icons.upload),
-                      label: const Text('Chọn ảnh'),
-                    ),
-                    if (_pickedImage != null) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.redAccent),
-                        tooltip: 'Xóa ảnh',
-                        onPressed: () => setState(() => _pickedImage = null),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
 
-                const SizedBox(height: 16),
+                  _circleCheck(isSelected),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
 
-                /// --- Nút hành động ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Hủy'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal[400],
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                      ),
-                      onPressed: _createGroup,
-                      child: const Text('Tạo nhóm'),
-                    ),
-                  ],
-                ),
-              ],
+  // ------------------------------------------------------------
+  // CHECKBOX TRÒN
+  // ------------------------------------------------------------
+  Widget _circleCheck(bool active) {
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: active ? Colors.teal : Colors.grey.shade400,
+          width: active ? 2 : 1.3,
+        ),
+        color: active ? Colors.teal : Colors.transparent,
+      ),
+      child: active
+          ? Icon(Icons.check, size: 15, color: Colors.white)
+          : null,
+    );
+  }
+
+  // ------------------------------------------------------------
+  // FILLED INPUT
+  // ------------------------------------------------------------
+  Widget _filledField(
+      TextEditingController ctl,
+      String hint, {
+        Widget? prefix,
+        Function(String)? onChanged,
+      }) {
+    return TextField(
+      controller: ctl,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.grey.shade200,
+        prefixIcon: prefix,
+        hintText: hint,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // BOTTOM BUTTON
+  // ------------------------------------------------------------
+  Widget _buildBottomButton() {
+    return Positioned(
+      bottom: 20,
+      left: 16,
+      right: 16,
+      child: GestureDetector(
+        onTap: _createGroup,
+        child: Container(
+          height: 54,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [Colors.teal.shade400, Colors.teal.shade600],
+            ),
+          ),
+          child: Center(
+            child: Text(
+              "Tạo nhóm",
+              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -203,175 +313,22 @@ class _CreateProjectGroupScreenState
     );
   }
 
-  /// --- Build danh sách dự án và nhân viên thật từ API ---
-  Widget _buildEmployeeListFromApi(List<ChatGetUserDuan> projects) {
-    final query = searchCtl.text.toLowerCase();
-    final projectList = projects.map((p) => p.tenDuAn).toList();
-
-    final projectDropdown = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          hint: const Text('Chọn dự án'),
-          value: selectedProject,
-          items: projectList.map((project) {
-            return DropdownMenuItem(
-              value: project,
-              child: Row(
-                children: [
-                  const Icon(Icons.home, color: Colors.teal, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(project,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-          onChanged: (value) => setState(() => selectedProject = value),
-        ),
-      ),
-    );
-
-    if (selectedProject == null) {
-      return Column(
-        children: [
-          projectDropdown,
-          const SizedBox(height: 20),
-          const Text('Vui lòng chọn dự án để hiển thị danh sách nhân viên'),
-        ],
-      );
-    }
-
-    final selectedProjectData =
-    projects.firstWhere((p) => p.tenDuAn == selectedProject);
-    final employees = selectedProjectData.users
-        .where((u) => u.fullNameUser.toLowerCase().contains(query))
-        .toList();
-
-    if (employees.isEmpty) {
-      return Column(
-        children: [
-          projectDropdown,
-          const SizedBox(height: 20),
-          const Text('Không tìm thấy nhân viên nào'),
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        projectDropdown,
-        const SizedBox(height: 12),
-        Expanded(
-          child: ListView.separated(
-            itemCount: employees.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (_, i) {
-              final emp = employees[i];
-              final selected = selectedEmployees.contains(emp.fullNameUser);
-
-              return CheckboxListTile(
-                value: selected,
-                onChanged: (checked) {
-                  setState(() {
-                    if (checked == true) {
-                      selectedEmployees.add(emp.fullNameUser);
-                    } else {
-                      selectedEmployees.remove(emp.fullNameUser);
-                    }
-                  });
-                },
-                title: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Color(0xFFEAEAEA),
-                      child: Icon(Icons.person, color: Colors.grey),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(emp.fullNameUser,
-                          style: const TextStyle(fontSize: 15)),
-                    ),
-                  ],
-                ),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+  // ------------------------------------------------------------
+  // PICK IMAGE
+  // ------------------------------------------------------------
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final img = await picker.pickImage(source: ImageSource.gallery);
+    if (img != null) setState(() => _pickedImage = img);
   }
 
-  /// --- Bottom sheet chọn ảnh ---
-  Future<void> _showImagePickerOptions() async {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo, color: Colors.teal),
-                title: const Text('Chọn từ thư viện'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final picker = ImagePicker();
-                  final XFile? image =
-                  await picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) {
-                    setState(() => _pickedImage = image);
-                  }
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: Colors.teal),
-                title: const Text('Chụp ảnh mới'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final picker = ImagePicker();
-                  final XFile? image =
-                  await picker.pickImage(source: ImageSource.camera);
-                  if (image != null) {
-                    setState(() => _pickedImage = image);
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// --- Tạo nhóm ---
+  // ------------------------------------------------------------
+  // ACTION CREATE
+  // ------------------------------------------------------------
   void _createGroup() {
-    if (groupNameCtl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập tên nhóm')),
-      );
-      return;
-    }
-
-    debugPrint('Tên nhóm: ${groupNameCtl.text}');
-    debugPrint('Dự án: $selectedProject');
-    debugPrint('Thành viên: $selectedEmployees');
-    debugPrint('Ảnh nhóm: ${_pickedImage?.path ?? 'Không chọn'}');
-    Navigator.pop(context);
+    debugPrint("Tên nhóm: ${groupNameCtl.text}");
+    debugPrint("Dự án chọn: $selectedProject");
+    debugPrint("Nhân viên: $selectedEmployees");
+    debugPrint("Ảnh nhóm: ${_pickedImage?.path}");
   }
 }

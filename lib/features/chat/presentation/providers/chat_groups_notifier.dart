@@ -31,25 +31,25 @@ class ChatGroupsNotifier extends StateNotifier<AsyncValue<List<ChatGroup>>> {
       final groups = await _usecase(idGroup: idGroup, type: type);
       state = AsyncValue.data(groups);
 
-      // ✅ join toàn bộ group ngay sau khi tải về
+      // join toàn bộ group ngay sau khi tải về
       if (groups.isNotEmpty) {
         final signalr = SignalRService();
-        print("📦 [ChatGroupsNotifier] Joining ${groups.length} groups...");
+        print("[ChatGroupsNotifier] Joining ${groups.length} groups...");
 
         for (final g in groups) {
           try {
             await signalr.joinConversation(g.idGroup);
           } catch (e) {
-            print("⚠️ join group ${g.idGroup} failed: $e");
+            print("join group ${g.idGroup} failed: $e");
           }
         }
 
-        print("🎉 [ChatGroupsNotifier] Joined all groups successfully!");
+        print("[ChatGroupsNotifier] Joined all groups successfully!");
       } else {
-        print("ℹ️ [ChatGroupsNotifier] No groups found to join.");
+        print("[ChatGroupsNotifier] No groups found to join.");
       }
     } catch (e, st) {
-      print("❌ [ChatGroupsNotifier] fetch error: $e");
+      print("[ChatGroupsNotifier] fetch error: $e");
       state = AsyncValue.error(e, st);
     }
   }

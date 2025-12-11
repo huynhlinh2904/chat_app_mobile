@@ -16,9 +16,9 @@ class AppInitializer {
 
     try {
       await signalR.initConnection(token);
-      print('🟢 [AppInitializer] SignalR connected automatically!');
+      print('[AppInitializer] SignalR connected automatically!');
     } catch (e) {
-      print('🔴 [AppInitializer] SignalR init failed: $e');
+      print('[AppInitializer] SignalR init failed: $e');
     }
   }
 }

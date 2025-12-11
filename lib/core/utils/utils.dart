@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -52,4 +54,36 @@ class ChatUtils {
   static void hideKeyboard(BuildContext context) {
     FocusScope.of(context).unfocus();
   }
+
+  static bool isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+
+      final payload = json.decode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))
+      );
+
+      final exp = payload["exp"];
+      if (exp == null) return true;
+
+      final expiryDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      return DateTime.now().isAfter(expiryDate);
+    } catch (e) {
+      return true;
+    }
+  }
+  /// Format DateTime theo chuẩn SQL (yyyy-MM-dd HH:mm:ss)
+  static String formatSqlDate(DateTime date) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    return '${date.year}-${twoDigits(date.month)}-${twoDigits(date.day)} '
+        '${twoDigits(date.hour)}:${twoDigits(date.minute)}:${twoDigits(date.second)}';
+  }
+
+  /// Trả về thời gian của ngày hôm sau (chuẩn SQL)
+  static String tomorrowSqlDate() {
+    return formatSqlDate(DateTime.now().add(const Duration(days: 1)));
+  }
+
+
 }

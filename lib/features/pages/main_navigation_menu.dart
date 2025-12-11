@@ -21,7 +21,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const ChatListUserScreen(),   // Tab Cá nhân
     //const MenuScreen(),
     const ProfileScreen(),// Tab Menu
-    const ChatExploreSimpleScreen(),   // Tab Khám phá
+    //const ChatExploreSimpleScreen(),   // Tab Khám phá
   ];
 
   @override
@@ -63,12 +63,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu),
-            label: 'Cá nhân',
+            label: 'profile',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Khám phá',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.explore),
+          //   label: 'Khám phá',
+          // ),
         ],
       ),
     );

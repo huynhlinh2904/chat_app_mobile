@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:chat_mobile_app/core/constants/flutter_secure_storage.dart';
+import 'package:chat_mobile_app/core/utils/utils.dart';
 import 'package:chat_mobile_app/features/chat/data/clients/signalr_client.dart';
 import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,6 @@ import '../../../../../core/widgets/typing_indicator.dart';
 import '../providers/chat_get_message_redis_notifier.dart';
 import '../providers/chat_messages_notifier.dart';
 import '../providers/chat_send_messages_notifier.dart';
-import '../../../../../core/utils/date_utils.dart';
 import '../providers/combined_messages_provider.dart';
 import '../providers/get_message_id_by_uuid_provider.dart';
 
@@ -35,6 +35,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _disposed = false;
   bool _initialLoadDone = false;
 
+  double? _lastPixel;
   DateTime? _lastLoadTime;
   int? idGroup;
   String? groupName;
@@ -63,7 +64,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ref.read(chatMessageProvider.notifier).upsertApiMessage(msg);
           _scrollToBottom();
         } catch (e) {
-          debugPrint("❌ Parse ReceiveMessage error: $e");
+          debugPrint("Parse ReceiveMessage error: $e");
         }
       }
     });
@@ -82,7 +83,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _isLoaded = true;
 
         await SignalRService().joinConversation(idGroup!);
-        final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)));
+        final dateOlder = ChatUtils.formatSqlDate(DateTime.now().add(const Duration(days: 1)));
 
         await Future.wait([
           ref.read(chatMessageProvider.notifier)
@@ -100,64 +101,91 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   // 🔹 Detect scroll lên để load cũ
   void _onScroll() {
-    if (!_initialLoadDone || !_hasMore || _isLoadingMore || !_scrollController.hasClients) return;
+    if (!_scrollController.hasClients || !_initialLoadDone) return;
 
-    final pos = _scrollController.position;
-    const threshold = 80.0;
+    final pos = _scrollController.position.pixels;
 
-    // Với reverse: true, đầu danh sách (tin cũ) nằm ở maxScrollExtent
-    final nearTop = pos.pixels >= (pos.maxScrollExtent - threshold);
-    if (nearTop) {
-      final now = DateTime.now();
-      if (_lastLoadTime != null &&
-          now.difference(_lastLoadTime!).inMilliseconds < 800) return;
-        _lastLoadTime = now;
+    // khởi tạo lastPixel
+    if (_lastPixel == null) {
+      _lastPixel = pos;
+      return;
+    }
+
+    // detect direction (reverse:true → scroll UI lên = pos tăng)
+    final bool scrollingUp = pos > _lastPixel!;
+    final bool scrollingDown = pos < _lastPixel!;
+
+    _lastPixel = pos;
+
+    //Không load khi scroll xuống
+    if (scrollingDown) return;
+
+    //Đang load rồi → không load tiếp
+    if (_isLoadingMore) return;
+
+    // Debounce: ngăn gọi liên tục
+    final now = DateTime.now();
+    if (_lastLoadTime != null &&
+        now.difference(_lastLoadTime!).inMilliseconds < 800) {
+      return;
+    }
+
+    // KIỂM TRA GẦN TOP
+    final threshold = 100.0;
+    final nearTop = pos >= (_scrollController.position.maxScrollExtent - threshold);
+
+    if (nearTop && _hasMore) {
+      _lastLoadTime = now;
       _loadOlder();
     }
   }
 
+
+
   Future<void> _loadOlder() async {
-    if (idGroup == null || _isLoadingMore || !_hasMore) return;
-      _isLoadingMore = true;
-    if (mounted) setState(() {});
+    if (_isLoadingMore || !_hasMore || idGroup == null) return;
 
-    final prevState = ref.read(combinedMessagesProvider);
-    final prevMsgs = prevState.value ?? <ChatGetMessage>[];
-    final beforeLen = prevMsgs.length;
-    final prevMax = _scrollController.hasClients
-        ? _scrollController.position.maxScrollExtent
-        : 0.0;
+    _isLoadingMore = true;
+    setState(() {});
 
-    // Lấy message cũ nhất hiện có
-    DateTime oldest = DateTime.now();
-    if (prevMsgs.isNotEmpty) {
-      for (final m in prevMsgs) {
-        final d = m.dateSent;
-        if (d != null && d.isBefore(oldest)) oldest = d;
-      }
-    }
+    if (!_scrollController.hasClients) return;
 
-    final dateOlder = formatSqlDate(oldest);
+    final oldOffset = _scrollController.position.pixels;
+    final oldMax = _scrollController.position.maxScrollExtent;
 
+    // lấy message cũ nhất hiện có
+    final messages = ref.read(combinedMessagesProvider).value ?? [];
+    DateTime oldest = messages.isEmpty
+        ? DateTime.now()
+        : messages.first.dateSent ?? DateTime.now();
+
+    final dateOlder = ChatUtils.formatSqlDate(oldest);
+
+    // fetch thêm từ API
     await ref.read(chatMessageProvider.notifier).fetchMessages(
       idGroup: idGroup!,
       dateOlder: dateOlder,
     );
+
+    // CHỈNH OFFSET → KHÔNG GIẬT
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
+
       final newMax = _scrollController.position.maxScrollExtent;
-      final delta = newMax - prevMax;
-      final nextOffset = (_scrollController.offset + delta)
-          .clamp(0.0, _scrollController.position.maxScrollExtent);
-      _scrollController.jumpTo(nextOffset);
+
+      final offsetToRestore = newMax - oldMax + oldOffset;
+
+      _scrollController.jumpTo(offsetToRestore);
     });
 
-    final afterLen = ref.read(chatMessageProvider).value?.length ?? beforeLen;
-    if (afterLen == beforeLen) _hasMore = false;
+    // check còn tin để load không
+    final updated = ref.read(chatMessageProvider).value ?? [];
+    if (updated.length == messages.length) _hasMore = false;
 
     _isLoadingMore = false;
     if (mounted) setState(() {});
   }
+
   void _showMessageMenu(ChatGetMessage msg) async {
     final idUser = await LocalStorageService.getIDUser();
     final isMe = msg.idSender == idUser;
@@ -558,7 +586,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ElevatedButton.icon(
           onPressed: () {
             if (idGroup != null) {
-              final dateOlder = formatSqlDate(DateTime.now().add(const Duration(days: 1)));
+              final dateOlder = ChatUtils.formatSqlDate(DateTime.now().add(const Duration(days: 1)));
               ref.read(chatMessageProvider.notifier)
                   .fetchMessages(idGroup: idGroup!, dateOlder: dateOlder);
             }
