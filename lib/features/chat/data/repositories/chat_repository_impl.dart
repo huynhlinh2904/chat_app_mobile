@@ -15,6 +15,7 @@ import '../../domain/entities/chat_get_message.dart';
 import '../../domain/entities/chat_get_user_duan.dart';
 import '../../domain/entities/chat_update_one_to_group.dart';
 import '../../domain/entities/chat_user.dart';
+import '../../domain/entities/last_message.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/entities/chat_group.dart';
 import '../dtos/chat_get_user_by_duan_response_dto.dart';
@@ -217,22 +218,33 @@ class ChatRepositoryImpl implements ChatRepository {
       if (data is String) data = jsonDecode(data);
 
       if (data is! Map || data['TYPE'] != 'SUCCESS') {
-        throw Exception('❌ Không thể tải danh sách người dùng dự án');
+        throw Exception(' Không thể tải danh sách người dùng dự án');
       }
 
-      // ✅ Gọi đúng class với alias
+      // Gọi đúng class với alias
       final dtoResponse = ChatGetUserByDuanResponseDto.fromJson(
         Map<String, dynamic>.from(data),
       );
       return dtoResponse.toEntities();
     } on DioException catch (e) {
-      throw Exception('🌐 Lỗi kết nối: ${e.message}');
+      throw Exception('Lỗi kết nối: ${e.message}');
     } catch (e) {
-      throw Exception('⚠️ Lỗi không xác định: $e');
+      throw Exception('Lỗi không xác định: $e');
     }
   }
 
+  @override
+  Future<List<LastMessage>> getLastMessagesRedis() async {
+    final res = await _dio.post(EndPoint.getLastMessageRedis);
 
+    if (res.data["TYPE"] != "SUCCESS") {
+      throw Exception("Lỗi lấy last message redis");
+    }
+
+    return (res.data["MESSAGE"] as List)
+        .map((e) => LastMessage.fromJson(e))
+        .toList();
+  }
 
 
 

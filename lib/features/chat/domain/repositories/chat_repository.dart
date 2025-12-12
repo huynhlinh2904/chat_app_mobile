@@ -7,6 +7,7 @@ import '../entities/chat_get_message.dart';
 import '../entities/chat_send_message.dart';
 import '../entities/chat_update_one_to_group.dart';
 import '../entities/chat_user.dart';
+import '../entities/last_message.dart';
 
 abstract class ChatRepository {
   Future<List<ChatGroup>> getGroups({required int idGroup, required int type});
@@ -18,4 +19,5 @@ abstract class ChatRepository {
   Future<List<ChatUpdateOneToGroupE>> chatUpdateOneToGroup({required int idGroup, required int idSender, required int idReceive, int type = 0,  });
   Future<List<ChatGetUserDuan>> getUserByDuan({required int idDv, required String sm1, required String sm2, required int idUser, int type = 0,});
   Future<List<ChatCreateGroupEntity>> createGroup(CreateGroupRequestDTO request);
+  Future<List<LastMessage>> getLastMessagesRedis();
 }

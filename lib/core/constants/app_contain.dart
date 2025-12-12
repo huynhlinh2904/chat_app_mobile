@@ -14,6 +14,7 @@ class EndPoint {
   static const chatUpdateOneToGroupAPI = "$apiService/api/Chat/CHAT_update_OneToGroups";
   static const getUserByDuanUrl = "$apiService/api/Chat/CHAT_get_NV_DUAN";
   static const createGroup = "$apiService/api/Chat/CHAT_update_CHATGROUPS";
+  static const getLastMessageRedis = "$apiService/api/Chat/CHAT_get_LastMessages_Redis";
 }
 
 class LinkImage {

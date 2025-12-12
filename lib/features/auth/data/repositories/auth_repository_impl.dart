@@ -24,14 +24,14 @@ class AuthRepositoryImpl implements AuthRepository {
       dynamic raw = response.data;
       if (raw is String) raw = jsonDecode(raw);
 
-      print("📦 [AuthRepositoryImpl] raw API response: $raw");
+      print("[AuthRepositoryImpl] raw API response: $raw");
 
       if (raw is! Map || raw['TYPE'] != 'SUCCESS') {
         final msg = (raw is Map ? raw['MESSAGE'] : null)?.toString() ?? 'Đăng nhập thất bại';
         throw Exception(msg);
       }
 
-      // ✅ Lấy dữ liệu gốc từ JSON
+      // Lấy dữ liệu gốc từ JSON
       final message = raw['MESSAGE'];
       final userList = message?['USER_INFO'] as List?;
       final userData = (userList != null && userList.isNotEmpty)
@@ -41,11 +41,11 @@ class AuthRepositoryImpl implements AuthRepository {
       final fullName = userData?['FULLNAME_USER']?.toString() ?? '';
       final avatar = userData?['IMG_AVA']?.toString() ?? '';
 
-      // ✅ Parse DTO nếu cần
+      // Parse DTO nếu cần
       final dto = LoginResponseDto.fromJson(raw as Map<String, dynamic>);
       final entity = dto.toEntity();
 
-      // ✅ Lưu session (ưu tiên lấy từ JSON gốc cho chắc)
+      // Lưu session (ưu tiên lấy từ JSON gốc cho chắc)
       await LocalStorageService.saveLoginData(
         token: entity.token,
         iddv: int.tryParse(userData?['IDDV'].toString() ?? '0') ?? 0,
@@ -60,7 +60,7 @@ class AuthRepositoryImpl implements AuthRepository {
         idPb: int.tryParse(userData?['ID_PB']?.toString() ?? ''),
       );
 
-      print("💾 Saved LoginData → FULLNAME_USER=$fullName | IMG_AVA=$avatar");
+      print(" Saved LoginData → FULLNAME_USER=$fullName | IMG_AVA=$avatar");
 
       return entity;
     } on DioException catch (e) {

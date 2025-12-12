@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../../core/widgets/message_bubble.dart';
 import '../../../../../core/widgets/typing_indicator.dart';
 import '../providers/chat_get_message_redis_notifier.dart';
+import '../providers/chat_groups_notifier.dart';
 import '../providers/chat_messages_notifier.dart';
 import '../providers/chat_send_messages_notifier.dart';
 import '../providers/combined_messages_provider.dart';
@@ -605,6 +606,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _messageController.dispose();
     _signalrSub?.cancel();
     _disposed = true;
+    ref.read(chatGroupsNotifierProvider.notifier).setCurrentOpenGroup(-1);
     super.dispose();
   }
 }

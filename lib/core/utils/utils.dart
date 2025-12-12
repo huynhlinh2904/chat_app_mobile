@@ -79,6 +79,36 @@ class ChatUtils {
     return '${date.year}-${twoDigits(date.month)}-${twoDigits(date.day)} '
         '${twoDigits(date.hour)}:${twoDigits(date.minute)}:${twoDigits(date.second)}';
   }
+  static String formatTime(DateTime? dt) {
+    if (dt == null) return "";
+
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+
+    // Dưới 1 phút
+    if (diff.inSeconds < 60) {
+      return "Vừa xong";
+    }
+
+    // Dưới 60 phút
+    if (diff.inMinutes < 60) {
+      return "${diff.inMinutes} phút trước";
+    }
+
+    // Dưới 24 giờ
+    if (diff.inHours < 24) {
+      return "${diff.inHours} giờ trước";
+    }
+
+    // Dưới 7 ngày
+    if (diff.inDays < 7) {
+      return "${diff.inDays} ngày trước";
+    }
+
+    // Lớn hơn 7 ngày → hiển thị ngày gửi
+    return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}";
+  }
+
 
   /// Trả về thời gian của ngày hôm sau (chuẩn SQL)
   static String tomorrowSqlDate() {

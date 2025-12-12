@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:chat_mobile_app/core/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,6 +120,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       controller: _scrollCtl,
                       currentUserId: _currentUserID,
                       onTapGroup: (g) {
+                        ref.read(chatGroupsNotifierProvider.notifier).setCurrentOpenGroup(g.idGroup);
                         Navigator.pushNamed(
                           context,
                           '/chat_screen',
@@ -259,16 +261,34 @@ class ChatGroupTile extends StatefulWidget {
 
 class _ChatGroupTileState extends State<ChatGroupTile> {
   double _scale = 1.0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (!mounted) return;
+      setState(() {});  // chỉ rebuild, không đổi state gì
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final title = displayName(widget.group, widget.currentUserId);
     final subtitle = widget.group.lastMessage ?? "";
-    final time = widget.group.lastMessage ?? "";
+    final time = ChatUtils.formatTime(widget.group.lastMessageDate);
     final url = (widget.group.avatarImg?.isNotEmpty ?? false)
         ? "https://your-base-url/${widget.group.avatarImg}"
         : null;
     final unread = widget.group.unreadCount;
+
+    print("🚀 TIME CHECK → ${widget.group.lastMessageDate}");
 
     return AnimatedScale(
       duration: const Duration(milliseconds: 110),
