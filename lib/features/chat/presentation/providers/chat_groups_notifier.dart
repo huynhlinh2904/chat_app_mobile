@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chat_mobile_app/core/network/dio_client.dart';
+import '../../domain/entities/chat_create_group_entity.dart';
 import '../../domain/entities/chat_group.dart';
 import '../../domain/entities/last_message.dart';
 import '../../domain/repositories/chat_repository.dart';
@@ -106,6 +107,46 @@ class ChatGroupsNotifier extends StateNotifier<AsyncValue<List<ChatGroup>>> {
       state = AsyncError(e, st);
     }
   }
+
+  void addNewGroupFromCreate(ChatCreateGroupEntity created) {
+    state.whenData((list) {
+      final newGroup = ChatGroup(
+        idGroup: created.idGroup,
+        groupName: created.groupName,
+        avatarImg: null,
+        backgroundImg: null,
+        isGroup: 1,
+        idUser: null,
+        createDate: DateTime.now(),
+        creatorName: null,
+        userName1: null,
+        userName2: null,
+        idUser1: null,
+        idUser2: null,
+        content: "",
+        typeMessage: null,
+        fileSend: null,
+        idSender: null,
+        senderName: null,
+        idMessage: null,
+        dateSort: DateTime.now(),
+        rn: 0,
+
+        // 👇 rất quan trọng
+        lastMessage: "",
+        lastMessageDate: DateTime.now(),
+        unreadCount: 0,
+      );
+
+      final updated = [newGroup, ...list];
+
+      state = AsyncValue.data(updated);
+    });
+
+    // 🚀 join SignalR group ngay
+    SignalRService().joinConversation(created.idGroup);
+  }
+
 
 
   void _handleSignalREvent(Map<String, dynamic> event) {

@@ -6,7 +6,7 @@ class CreateGroupRequestDTO {
   final String groupName;
   final int isGroup;
   final int idUser;
-  final int idDuan;
+  // final int idDuan;
   final String jsonMembers;
   final int type;
   final int currentUser;
@@ -19,7 +19,6 @@ class CreateGroupRequestDTO {
     required this.groupName,
     required this.isGroup,
     required this.idUser,
-    required this.idDuan,
     required this.jsonMembers,
     required this.type,
     required this.currentUser,
@@ -34,7 +33,6 @@ class CreateGroupRequestDTO {
       "GROUP_NAME": groupName,
       "IS_GROUP": isGroup,
       "ID_USER": idUser,
-      "ID_DUAN": idDuan,
       "Json_Members": jsonMembers,
       "TYPE": type,
       "CURRENT_USER": currentUser,

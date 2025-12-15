@@ -1,4 +1,3 @@
-import 'package:chat_mobile_app/features/chat/domain/entities/chat_get_message.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
