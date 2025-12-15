@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_contain.dart';
+import '../../../../core/widgets/toast.dart';
+import '../../data/dtos/create_group_request_dto.dart';
 import '../../domain/entities/chat_get_user_duan.dart';
+import '../providers/chat_groups_notifier.dart';
+import '../providers/create_group_providers.dart';
 import '../providers/get_user_by_duan_notifier.dart';
 
 class CreateProjectGroupScreen extends ConsumerStatefulWidget {
@@ -23,6 +28,7 @@ class _CreateProjectGroupScreenState
 
   ChatGetUserDuan? selectedProject;
   final Set<int> selectedUserIds = {};
+  bool _isSubmitting = false;
 
   final pastelColors = const [
     Color(0xFFE8DFF5),
@@ -32,6 +38,87 @@ class _CreateProjectGroupScreenState
     Color(0xFFB8E0D2),
     Color(0xFFCDEAC0),
   ];
+
+  Future<void> _submitCreateGroup() async {
+    if (_isSubmitting) return;
+
+    final creds = await getChatCredentials();
+    if (creds == null) {
+      ToastService.show(context, "Không lấy được thông tin đăng nhập");
+      return;
+    }
+
+    if (groupNameCtl.text.trim().isEmpty) {
+      ToastService.show(context, "Vui lòng nhập tên nhóm");
+      return;
+    }
+
+    if (selectedProject == null) {
+      ToastService.show(context, "Vui lòng chọn dự án");
+      return;
+    }
+
+    if (selectedUserIds.isEmpty) {
+      ToastService.show(context, "Vui lòng chọn ít nhất 1 thành viên");
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      /// 👉 JSON MEMBERS
+      final jsonMembers = jsonEncode(
+        selectedUserIds.map((id) => {"ID_USER": id}).toList(),
+      );
+
+      /// 👉 DTO TẠO NHÓM DỰ ÁN
+      final dto = CreateGroupRequestDTO(
+        iddv: creds.iddv,
+        sm1: creds.sm1,
+        sm2: creds.sm2,
+        idGroup: 0,
+        groupName: groupNameCtl.text.trim(),
+        isGroup: 1,
+        idUser: creds.userId,
+        jsonMembers: jsonMembers,
+        type: 0, // 👈 nhóm dự án
+        currentUser: creds.userId,
+        //idDuan: selectedProject!.idDuAn, // ⭐ RẤT QUAN TRỌNG
+      );
+
+      /// 🔥 CALL CREATE GROUP
+      final createdGroup = await ref
+          .read(createGroupNotifierProvider.notifier)
+          .create(dto);
+
+      /// ✅ ADD VÀO CHAT LIST
+      ref
+          .read(chatGroupsNotifierProvider.notifier)
+          .addNewGroupFromCreate(createdGroup);
+
+      /// ✅ SET GROUP ĐANG MỞ
+      ref
+          .read(chatGroupsNotifierProvider.notifier)
+          .setCurrentOpenGroup(createdGroup.idGroup);
+
+      /// ✅ NAVIGATE → CHAT
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+        context,
+        '/chat_screen',
+        arguments: {
+          "idGroup": createdGroup.idGroup,
+          "groupName": createdGroup.groupName,
+        },
+      );
+    } catch (e) {
+      debugPrint("❌ Create project group error: $e");
+      ToastService.show(context, "Tạo nhóm dự án thất bại");
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
 
   @override
   void initState() {
@@ -220,34 +307,46 @@ class _CreateProjectGroupScreenState
   }
 
   Widget _buildBottomButton() {
+    final canSubmit = groupNameCtl.text.trim().isNotEmpty &&
+        selectedUserIds.isNotEmpty &&
+        selectedProject != null;
+
     return Positioned(
-      bottom: 20,
       left: 16,
       right: 16,
-      child: ElevatedButton(
-        onPressed: _createGroup,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.teal,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          minimumSize: const Size.fromHeight(54),
-        ),
-        child: const Text(
-          "Tạo nhóm",
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+      bottom: 20,
+      child: SizedBox(
+        height: 52,
+        child: ElevatedButton(
+          onPressed: canSubmit && !_isSubmitting
+              ? _submitCreateGroup
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          child: _isSubmitting
+              ? const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
+            ),
+          )
+              : const Text(
+            "Tạo nhóm",
+            style: TextStyle(fontSize: 16),
+          ),
         ),
       ),
     );
   }
 
-  // ================= ACTION =================
 
-  void _createGroup() {
-    debugPrint("Tên nhóm: ${groupNameCtl.text}");
-    debugPrint("Dự án: ${selectedProject?.tenDuAn}");
-    debugPrint("User IDs: $selectedUserIds");
-    debugPrint("Ảnh: ${_pickedImage?.path}");
-  }
+  // ================= ACTION =================
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
