@@ -1,51 +1,30 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../../core/constants/app_contain.dart';
+import '../../domain/entities/chat_get_user_duan.dart';
+import '../providers/get_user_by_duan_notifier.dart';
 
-class CreateProjectGroupScreen extends StatefulWidget {
+class CreateProjectGroupScreen extends ConsumerStatefulWidget {
   const CreateProjectGroupScreen({super.key});
 
   @override
-  State<CreateProjectGroupScreen> createState() => _CreateProjectGroupScreenState();
+  ConsumerState<CreateProjectGroupScreen> createState() =>
+      _CreateProjectGroupScreenState();
 }
 
-class _CreateProjectGroupScreenState extends State<CreateProjectGroupScreen> {
+class _CreateProjectGroupScreenState
+    extends ConsumerState<CreateProjectGroupScreen> {
   final TextEditingController groupNameCtl = TextEditingController();
   final TextEditingController searchCtl = TextEditingController();
 
   XFile? _pickedImage;
 
-  String? selectedProject;
-  final Set<String> selectedEmployees = {};
+  ChatGetUserDuan? selectedProject;
+  final Set<int> selectedUserIds = {};
 
-  /// Mock danh sách dự án + nhân viên (KHÔNG GỌI API)
-  final List<Map<String, dynamic>> mockProjects = [
-    {
-      "project": "Dự án A - Xây dựng",
-      "employees": [
-        "Nguyễn Văn A",
-        "Trần Thị B",
-        "Lê Hoàng C",
-      ]
-    },
-    {
-      "project": "Dự án B - Điện lực",
-      "employees": [
-        "Phạm Quốc D",
-        "Đỗ Hải E",
-        "Trương Minh F",
-      ]
-    },
-    {
-      "project": "Dự án C - Hạ tầng",
-      "employees": [
-        "Nguyễn Văn K",
-        "Lê Minh H",
-      ]
-    }
-  ];
-
-  final List<Color> pastelColors = [
+  final pastelColors = const [
     Color(0xFFE8DFF5),
     Color(0xFFFFF6BD),
     Color(0xFFFFD6A5),
@@ -55,212 +34,233 @@ class _CreateProjectGroupScreenState extends State<CreateProjectGroupScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    final creds = await getChatCredentials();
+    if (creds == null) return;
+
+    ref.read(userByDuanNotifierProvider.notifier).fetch(
+      idDv: creds.iddv,
+      sm1: creds.sm1,
+      sm2: creds.sm2,
+      idUser: creds.userId,
+      type: 0,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
+        title: const Text("Tạo nhóm dự án"),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          "Tạo nhóm dự án",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
       ),
-
-      body: Stack(
-        children: [
-          _buildMainUI(),
-          _buildBottomButton(),
-        ],
+      body: ref.watch(userByDuanNotifierProvider).when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => const Center(child: Text("Lỗi tải dự án")),
+        data: (projects) => Stack(
+          children: [
+            _buildMainUI(projects),
+            _buildBottomButton(),
+          ],
+        ),
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // MAIN UI CONTENT
-  // ------------------------------------------------------------
-  Widget _buildMainUI() {
+  // ================= UI =================
+
+  Widget _buildMainUI(List<ChatGetUserDuan> projects) {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 90),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
       child: Column(
         children: [
-          // Avatar nhóm
-          GestureDetector(
-            onTap: _pickImage,
-            child: CircleAvatar(
-              radius: 45,
-              backgroundColor: Colors.grey.shade200,
-              child: _pickedImage == null
-                  ? Icon(Icons.camera_alt, size: 32, color: Colors.grey)
-                  : ClipOval(
-                child: Image.file(
-                  File(_pickedImage!.path),
-                  width: 90,
-                  height: 90,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ),
-
-          SizedBox(height: 20),
-
-          // Tên nhóm
+          _buildAvatar(),
+          const SizedBox(height: 20),
           _filledField(groupNameCtl, "Tên nhóm..."),
-
-          SizedBox(height: 14),
-
-          // Search
+          const SizedBox(height: 14),
           _filledField(
             searchCtl,
             "Tìm kiếm nhân viên...",
-            prefix: Icon(Icons.search, color: Colors.grey),
+            prefix: const Icon(Icons.search),
             onChanged: (_) => setState(() {}),
           ),
-
-          SizedBox(height: 20),
-
+          const SizedBox(height: 20),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
+            child: const Text(
               "Thuộc dự án",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
-
-          SizedBox(height: 12),
-
-          _buildProjectDropdown(),
-
-          SizedBox(height: 20),
-
+          const SizedBox(height: 12),
+          _buildProjectDropdown(projects),
+          const SizedBox(height: 20),
           if (selectedProject != null) _buildEmployeeList(),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // DROPDOWN DỰ ÁN (MOCK)
-  // ------------------------------------------------------------
-  Widget _buildProjectDropdown() {
+  Widget _buildAvatar() {
+    return Stack(
+      children: [
+        CircleAvatar(
+          radius: 45,
+          backgroundColor: Colors.grey.shade200,
+          backgroundImage:
+          _pickedImage != null ? FileImage(File(_pickedImage!.path)) : null,
+          child: _pickedImage == null
+              ? const Icon(Icons.camera_alt, size: 32, color: Colors.grey)
+              : null,
+        ),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: GestureDetector(
+            onTap: _pickImage,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                color: Colors.teal,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.camera_alt,
+                  size: 18, color: Colors.white),
+            ),
+          ),
+        )
+      ],
+    );
+  }
+
+  Widget _buildProjectDropdown(List<ChatGetUserDuan> projects) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(14),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
+        child: DropdownButton<ChatGetUserDuan>(
           isExpanded: true,
           value: selectedProject,
-          hint: Text("Chọn dự án"),
-          items: mockProjects.map((p) {
+          hint: const Text("Chọn dự án"),
+          items: projects.map((p) {
             return DropdownMenuItem(
-              value: p["project"] as String,
+              value: p,
               child: Text(
-                p["project"],
+                p.tenDuAn,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             );
           }).toList(),
-          onChanged: (v) => setState(() => selectedProject = v),
+          onChanged: (v) {
+            setState(() {
+              selectedProject = v;
+              selectedUserIds.clear();
+            });
+          },
         ),
       ),
     );
   }
 
-  // ------------------------------------------------------------
-  // EMPLOYEE LIST UI (MOCK)
-  // ------------------------------------------------------------
   Widget _buildEmployeeList() {
-    final project = mockProjects.firstWhere((p) => p["project"] == selectedProject);
-    final employees = (project["employees"] as List<String>)
-        .where((e) => e.toLowerCase().contains(searchCtl.text.toLowerCase()))
-        .toList();
+    final users = selectedProject!.users.where((u) {
+      return u.fullNameUser
+          .toLowerCase()
+          .contains(searchCtl.text.toLowerCase());
+    }).toList();
+
+    if (users.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 20),
+        child: Text("Không có nhân viên"),
+      );
+    }
 
     return Column(
-      children: List.generate(employees.length, (i) {
-        final emp = employees[i];
-        final isSelected = selectedEmployees.contains(emp);
+      children: List.generate(users.length, (i) {
+        final u = users[i];
+        final selected = selectedUserIds.contains(u.idUser);
 
-        return Padding(
-          padding: EdgeInsets.symmetric(vertical: 6),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () {
-              setState(() {
-                isSelected ? selectedEmployees.remove(emp) : selectedEmployees.add(emp);
-              });
-            },
-            child: Container(
-              padding: EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isSelected ? Colors.teal : Colors.grey.shade300,
-                  width: isSelected ? 1.3 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: pastelColors[i % pastelColors.length],
-                    child: Icon(Icons.person, color: Colors.black87),
-                  ),
-
-                  SizedBox(width: 14),
-
-                  Expanded(
-                    child: Text(
-                      emp,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-
-                  _circleCheck(isSelected),
-                ],
-              ),
-            ),
+        return ListTile(
+          onTap: () {
+            setState(() {
+              selected
+                  ? selectedUserIds.remove(u.idUser)
+                  : selectedUserIds.add(u.idUser);
+            });
+          },
+          leading: CircleAvatar(
+            backgroundColor: pastelColors[i % pastelColors.length],
+            child: Text(_initials(u.fullNameUser)),
           ),
+          title: Text(u.fullNameUser),
+          subtitle: u.chucVu != null ? Text(u.chucVu!) : null,
+          trailing: selected
+              ? const Icon(Icons.check_circle, color: Colors.teal)
+              : null,
         );
       }),
     );
   }
 
-  // ------------------------------------------------------------
-  // CHECKBOX TRÒN
-  // ------------------------------------------------------------
-  Widget _circleCheck(bool active) {
-    return Container(
-      width: 26,
-      height: 26,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: active ? Colors.teal : Colors.grey.shade400,
-          width: active ? 2 : 1.3,
+  Widget _buildBottomButton() {
+    return Positioned(
+      bottom: 20,
+      left: 16,
+      right: 16,
+      child: ElevatedButton(
+        onPressed: _createGroup,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.teal,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          minimumSize: const Size.fromHeight(54),
         ),
-        color: active ? Colors.teal : Colors.transparent,
+        child: const Text(
+          "Tạo nhóm",
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+        ),
       ),
-      child: active
-          ? Icon(Icons.check, size: 15, color: Colors.white)
-          : null,
     );
   }
 
-  // ------------------------------------------------------------
-  // FILLED INPUT
-  // ------------------------------------------------------------
+  // ================= ACTION =================
+
+  void _createGroup() {
+    debugPrint("Tên nhóm: ${groupNameCtl.text}");
+    debugPrint("Dự án: ${selectedProject?.tenDuAn}");
+    debugPrint("User IDs: $selectedUserIds");
+    debugPrint("Ảnh: ${_pickedImage?.path}");
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final img = await picker.pickImage(source: ImageSource.gallery);
+    if (img != null) setState(() => _pickedImage = img);
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r"\s+"));
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return "${parts.first[0]}${parts.last[0]}".toUpperCase();
+  }
+
   Widget _filledField(
       TextEditingController ctl,
       String hint, {
@@ -279,56 +279,7 @@ class _CreateProjectGroupScreenState extends State<CreateProjectGroupScreen> {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
-  }
-
-  // ------------------------------------------------------------
-  // BOTTOM BUTTON
-  // ------------------------------------------------------------
-  Widget _buildBottomButton() {
-    return Positioned(
-      bottom: 20,
-      left: 16,
-      right: 16,
-      child: GestureDetector(
-        onTap: _createGroup,
-        child: Container(
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [Colors.teal.shade400, Colors.teal.shade600],
-            ),
-          ),
-          child: Center(
-            child: Text(
-              "Tạo nhóm",
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // PICK IMAGE
-  // ------------------------------------------------------------
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final img = await picker.pickImage(source: ImageSource.gallery);
-    if (img != null) setState(() => _pickedImage = img);
-  }
-
-  // ------------------------------------------------------------
-  // ACTION CREATE
-  // ------------------------------------------------------------
-  void _createGroup() {
-    debugPrint("Tên nhóm: ${groupNameCtl.text}");
-    debugPrint("Dự án chọn: $selectedProject");
-    debugPrint("Nhân viên: $selectedEmployees");
-    debugPrint("Ảnh nhóm: ${_pickedImage?.path}");
   }
 }
