@@ -12,8 +12,51 @@ class SignalRService {
 
   late HubConnection hubConnection;
   bool isConnected = false;
+  bool _handlersRegistered = false;
+
+  // Future<void> initConnection(String token) async {
+  //   hubConnection = HubConnectionBuilder()
+  //       .withUrl(
+  //     EndPoint.chatHubUrl,
+  //     options: HttpConnectionOptions(
+  //       accessTokenFactory: () async => token,
+  //       transport: HttpTransportType.WebSockets,
+  //     ),
+  //   )
+  //       .withAutomaticReconnect()
+  //       .build();
+  //
+  //   _registerHandlers();
+  //
+  //   hubConnection.onreconnecting(({error}) {
+  //     isConnected = false;
+  //     print('Reconnecting... $error');
+  //   });
+  //
+  //   hubConnection.onreconnected(({connectionId}) async {
+  //     isConnected = true;
+  //     print(' Reconnected! $connectionId');
+  //     await _rejoinConversations();
+  //     _eventStream.add({'type': 'reconnected'});
+  //   });
+  //
+  //   hubConnection.onclose(({error}) {
+  //     isConnected = false;
+  //     print(' Connection closed: $error');
+  //     _tryReconnect();
+  //   });
+  //
+  //   await _startConnection();
+  // }
 
   Future<void> initConnection(String token) async {
+    // ✅ STOP connection cũ trước
+    if (hubConnection != null &&
+        hubConnection.state != HubConnectionState.Disconnected) {
+      print("Stopping old SignalR connection...");
+      await hubConnection.stop();
+    }
+
     hubConnection = HubConnectionBuilder()
         .withUrl(
       EndPoint.chatHubUrl,
@@ -26,27 +69,11 @@ class SignalRService {
         .build();
 
     _registerHandlers();
-
-    hubConnection.onreconnecting(({error}) {
-      isConnected = false;
-      print('Reconnecting... $error');
-    });
-
-    hubConnection.onreconnected(({connectionId}) async {
-      isConnected = true;
-      print(' Reconnected! $connectionId');
-      await _rejoinConversations();
-      _eventStream.add({'type': 'reconnected'});
-    });
-
-    hubConnection.onclose(({error}) {
-      isConnected = false;
-      print(' Connection closed: $error');
-      _tryReconnect();
-    });
+    _registerLifecycle();
 
     await _startConnection();
   }
+
 
   Future<void> _startConnection() async {
     while (hubConnection.state != HubConnectionState.Connected) {
@@ -127,6 +154,22 @@ class SignalRService {
 
 
   }
+  void _registerLifecycle() {
+    hubConnection!.onreconnecting(({Exception? error}) {
+      isConnected = false;
+      print('[SignalR] Reconnecting... $error');
+    });
+
+    hubConnection!.onreconnected(({String? connectionId}) {
+      isConnected = true;
+      print('[SignalR] Reconnected: $connectionId');
+    });
+
+    hubConnection!.onclose(({Exception? error}) {
+      isConnected = false;
+      print('[SignalR] Connection closed: $error');
+    });
+  }
 
 
 
@@ -170,4 +213,6 @@ class SignalRService {
     await hubConnection.stop();
     print(" SignalR stopped");
   }
+
+
 }
