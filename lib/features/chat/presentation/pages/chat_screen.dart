@@ -28,6 +28,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   StreamSubscription? _signalrSub;
+  ChatGetMessage? _replyingMessage;
 
   bool _isTyping = false;
   bool _isLoaded = false;
@@ -55,20 +56,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // 🔹 Listen SignalR realtime
     _signalrSub = SignalRService().events.listen((event) {
-      if (!mounted) return;
       if (event['type'] == 'ReceiveMessage') {
-        final data = event['data'];
-        try {
-          final msg = data is Map<String, dynamic>
-              ? ChatGetMessage.fromJson(data)
-              : ChatGetMessage.fromJsonString(data.toString());
-          ref.read(chatMessageProvider.notifier).upsertApiMessage(msg);
-          _scrollToBottom();
-        } catch (e) {
-          debugPrint("Parse ReceiveMessage error: $e");
-        }
+        final msg = ChatGetMessage.fromJson(event['data']);
+
+        ref.read(chatMessageProvider.notifier).upsertApiMessage(msg);
       }
     });
+
 
     Future.microtask(() async {
       if (!mounted) return;
@@ -201,7 +195,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title: const Text('Phản hồi'),
         onTap: () {
           Navigator.pop(context);
-          debugPrint('💬 Reply to ${msg.idMessage}');
+          setState(() {
+            _replyingMessage = msg;
+          });
         },
       ),
     );
@@ -325,6 +321,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       idGroup: idGroup!,
       content: text,
       idSender: idSender ?? 0,
+      replyToID: _replyingMessage?.idMessage,
+      replyToContent: _replyingMessage?.content,
       fullNameUser: fullName ?? "Unknown",
       idMessageOverride: 'temp_$uuid',
     );
@@ -336,6 +334,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       type: 0,
       idSender: idSender ?? 0,
       fullNameUser: fullName ?? "",
+      replyToID: _replyingMessage?.idMessage ?? "",
+      replyToContent: _replyingMessage?.content ?? "",
       ref: ref,
       typeMessage: 0,
     );
@@ -343,7 +343,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _resolveUuidAndReplace(uuid);
 
     _messageController.clear();
-    setState(() => _isTyping = false);
+    setState(() {
+      _isTyping = false;
+      _replyingMessage = null;
+    });
     _scrollToBottom();
   }
 
@@ -440,9 +443,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               backgroundImage: const NetworkImage('https://i.pravatar.cc/150'),
             ),
             const SizedBox(width: 10),
-            Text(
-              groupName ?? 'Đang tải...',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+            Expanded(
+              child: Text(
+                groupName ?? 'Đang tải...',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
             ),
           ],
         ),
@@ -539,40 +549,98 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-
-
   Widget _buildInputBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.black12)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: _showAttachmentOptions,
-            icon: const Icon(Icons.add_circle_outline, color: Colors.deepPurple),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 6,
+            offset: Offset(0, -2),
+            color: Color(0x11000000),
           ),
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              onChanged: (val) => setState(() => _isTyping = val.isNotEmpty),
-              decoration: InputDecoration(
-                hintText: 'Nhập tin nhắn...',
-                hintStyle: TextStyle(color: Colors.grey[500]),
-                border: InputBorder.none,
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ✅ Reply preview
+          if (_replyingMessage != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: const Border(
+                  left: BorderSide(color: Colors.deepPurple, width: 3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _replyingMessage!.content ?? '',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _replyingMessage = null),
+                    child: const Icon(Icons.close, size: 16),
+                  ),
+                ],
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.deepPurple),
-            onPressed: _sendMessage,
+          // ✅ Input row (luôn hiển thị)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  minLines: 1,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    hintText: _replyingMessage != null
+                        ? "Trả lời ${_replyingMessage!.content ?? ''}..."
+                        : "Nhập tin nhắn...",
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _sendMessage,
+                icon: const Icon(Icons.send_rounded, color: Colors.deepPurple),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+
+
 
   Widget _buildError(String error) => Center(
     child: Column(

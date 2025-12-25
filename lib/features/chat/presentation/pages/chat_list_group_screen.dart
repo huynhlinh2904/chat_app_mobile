@@ -114,25 +114,65 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
                     error: (e, _) => Center(child: Text(e.toString())),
-                    data: (groups) => ChatGroupsListView(
-                      groups: groups,
-                      query: _query,
-                      controller: _scrollCtl,
-                      currentUserId: _currentUserID,
-                      onTapGroup: (g) {
-                        ref.read(chatGroupsNotifierProvider.notifier).setCurrentOpenGroup(g.idGroup);
-                        Navigator.pushNamed(
-                          context,
-                          '/chat_screen',
-                          arguments: {
-                            'idGroup': g.idGroup,
-                            'groupName': displayName(g, _currentUserID),
+                      data: (groups) {
+                        final normalGroups = groups
+                            .where((g) => (g.idDuan ?? 0) == 0)
+                            .toList();
+
+                        return ChatGroupsListView(
+                          groups: normalGroups,
+                          query: _query,
+                          controller: _scrollCtl,
+                          currentUserId: _currentUserID,
+                          onTapGroup: (g) {
+                            ref
+                                .read(chatGroupsNotifierProvider.notifier)
+                                .setCurrentOpenGroup(g.idGroup);
+                            Navigator.pushNamed(
+                              context,
+                              '/chat_screen',
+                              arguments: {
+                                'idGroup': g.idGroup,
+                                'groupName': displayName(g, _currentUserID),
+                              },
+                            );
                           },
                         );
-                      },
-                    ),
+                      }
                   ),
-                  const Center(child: Text("Chưa có nhóm dự án")),
+                  groupsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text(e.toString())),
+                    data: (groups) {
+                      final projectGroups = groups
+                          .where((g) => (g.idDuan ?? 0) != 0)
+                          .toList();
+
+                      if (projectGroups.isEmpty) {
+                        return const Center(child: Text("Chưa có nhóm dự án"));
+                      }
+
+                      return ChatGroupsListView(
+                        groups: projectGroups,
+                        query: _query,
+                        controller: _scrollCtl,
+                        currentUserId: _currentUserID,
+                        onTapGroup: (g) {
+                          ref
+                              .read(chatGroupsNotifierProvider.notifier)
+                              .setCurrentOpenGroup(g.idGroup);
+                          Navigator.pushNamed(
+                            context,
+                            '/chat_screen',
+                            arguments: {
+                              'idGroup': g.idGroup,
+                              'groupName': displayName(g, _currentUserID),
+                            },
+                          );
+                        },
+                      );
+                    },
+                  )
                 ],
               ),
             ),
@@ -287,6 +327,7 @@ class _ChatGroupTileState extends State<ChatGroupTile> {
         ? "https://your-base-url/${widget.group.avatarImg}"
         : null;
     final unread = widget.group.unreadCount;
+    final isProjectGroup = (widget.group.idDuan ?? 0) != 0;
 
     print("🚀 TIME CHECK → ${widget.group.lastMessageDate}");
 

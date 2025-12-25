@@ -23,7 +23,10 @@ class ChatSendMessagesNotifier extends StateNotifier<ChatSendMessagesState> {
     required int type,
     required int typeMessage,
     required int idSender,
+    required String? replyToID,
+    required String? replyToContent,
     required String fullNameUser,
+
     required WidgetRef ref,
   }) async {
     try {
@@ -34,6 +37,8 @@ class ChatSendMessagesNotifier extends StateNotifier<ChatSendMessagesState> {
         idGroup: idGroup,
         idMessage: idMessage,
         content: content,
+        replyToID: replyToID,
+        replyToContent: replyToContent,
         type: type,
       );
 

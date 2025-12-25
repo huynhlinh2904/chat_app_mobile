@@ -254,7 +254,7 @@ class ChatRepositoryImpl implements ChatRepository {
     required int idGroup,
     required String content,
     required int type,
-    int? replyToID,
+    String? replyToID,
     String? replyToContent,
     String  idMessage = '',
   }) async {
@@ -271,7 +271,7 @@ class ChatRepositoryImpl implements ChatRepository {
         'FULLNAME_USER': creds.fullNameUser ?? '',
         'CONTENT': content,
         'TYPE': type,
-        'REPLY_TO_ID': replyToID ?? 0,
+        'REPLYTOID': replyToID ?? "",
         'REPLY_TO_CONTENT': replyToContent ?? '',
       };
 

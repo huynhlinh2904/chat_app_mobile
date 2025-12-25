@@ -11,7 +11,7 @@ class SendMessageUseCase {
     required String idMessage,
     required String content,
     required int type,
-    int? replyToID,
+    String? replyToID,
     String? replyToContent,
   }) {
     return repository.sendMessage(

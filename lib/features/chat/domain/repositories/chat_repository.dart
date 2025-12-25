@@ -14,7 +14,7 @@ abstract class ChatRepository {
   Future<List<ChatUser>> getUsers({required int type});
   Future<List<ChatGetMessage>> getMessages({required int idGroup, required String dateOlder, required int type,});
   Future<List<ChatGetMessageRedis>> getMessageRedis({required int idGroup});
-  Future<List<ChatSendMessage>> sendMessage({required int idGroup, required String content, required int type, int? replyToID, String? replyToContent, required String idMessage,});
+  Future<List<ChatSendMessage>> sendMessage({required int idGroup, required String content, required int type, String? replyToID, String? replyToContent, required String idMessage,});
   Future<int?> getMessageIdByUuid(String uuid) async {return null;}
   Future<List<ChatUpdateOneToGroupE>> chatUpdateOneToGroup({required int idGroup, required int idSender, required int idReceive, int type = 0,  });
   Future<List<ChatGetUserDuan>> getUserByDuan({required int idDv, required String sm1, required String sm2, required int idUser, int type = 0,});

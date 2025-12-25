@@ -24,6 +24,7 @@ class ChatGroupItemDto {
   final String? creatorName;
   final String? userName1;
   final String? userName2;
+  final int? idDuan;
   final int? idUser1;
   final int? idUser2;
   final String? content;
@@ -49,6 +50,7 @@ class ChatGroupItemDto {
     this.creatorName,
     this.userName1,
     this.userName2,
+    this.idDuan,
     this.idUser1,
     this.idUser2,
     this.content,
@@ -77,6 +79,7 @@ class ChatGroupItemDto {
       creatorName: j['CREATOR_NAME'] as String?,
       userName1: j['USER_NAME_1'] as String?,
       userName2: j['USER_NAME_2'] as String?,
+      idDuan: (j['ID_DUAN'] as num?)?.toInt(),
       idUser1: (j['ID_USER1'] as num?)?.toInt(),
       idUser2: (j['ID_USER2'] as num?)?.toInt(),
       content: j['CONTENT'] as String?,

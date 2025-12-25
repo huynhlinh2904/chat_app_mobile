@@ -68,6 +68,8 @@ class ChatMessageNotifier extends StateNotifier<AsyncValue<List<ChatGetMessage>>
     required String content,
     required int idSender,
     required String fullNameUser,
+    String? replyToID,
+    String? replyToContent,
     String? avatarUrl,
     String? idMessageOverride, // có thể là UUID, sẽ auto prefix temp_
     int typeMessage = 0,

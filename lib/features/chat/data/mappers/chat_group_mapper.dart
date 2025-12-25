@@ -13,6 +13,7 @@ extension ChatGroupDtoMapper on ChatGroupItemDto {
     creatorName: creatorName,
     userName1 : userName1,
     userName2 : userName2,
+    idDuan    : idDuan,
     idUser1   : idUser1,
     idUser2   : idUser2,
     content   : content,

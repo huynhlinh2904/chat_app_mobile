@@ -9,6 +9,7 @@ class ChatGroup {
   final String? creatorName;
   final String? userName1;
   final String? userName2;
+  final int? idDuan;
   final int? idUser1;
   final int? idUser2;
   final String? content;
@@ -36,6 +37,7 @@ class ChatGroup {
     this.creatorName,
     this.userName1,
     this.userName2,
+    this.idDuan,
     this.idUser1,
     this.idUser2,
     this.content,
@@ -64,6 +66,7 @@ extension ChatGroupCopy on ChatGroup {
     String? creatorName,
     String? userName1,
     String? userName2,
+    int? idDuan,
     int? idUser1,
     int? idUser2,
     String? content,
@@ -90,6 +93,7 @@ extension ChatGroupCopy on ChatGroup {
       creatorName: creatorName ?? this.creatorName,
       userName1: userName1 ?? this.userName1,
       userName2: userName2 ?? this.userName2,
+      idDuan: idDuan ?? this.idDuan,
       idUser1: idUser1 ?? this.idUser1,
       idUser2: idUser2 ?? this.idUser2,
       content: content ?? this.content,

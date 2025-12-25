@@ -5,7 +5,7 @@ class ChatSendMessage {
   final String fullNameUser;
   final String content;
   final String dateSent;
-  final int replyToID;
+  final String replyToID;
   final String replyToContent;
   final int typeMessage;
 

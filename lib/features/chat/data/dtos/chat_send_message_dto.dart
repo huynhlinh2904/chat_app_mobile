@@ -22,7 +22,7 @@ class ChatSendMessageItemDto {
   final int idSender;
   final String fullNameUser;
   final String content;
-  final int replyToID;
+  final String replyToID;
   final String replyToContent;
   final String dateSent;
   final int typeMessage;
@@ -48,20 +48,21 @@ class ChatSendMessageItemDto {
   });
 
   factory ChatSendMessageItemDto.fromJson(Map<String, dynamic> json) {
+    String _s(dynamic v) => v?.toString() ?? '';
     return ChatSendMessageItemDto(
-      idGroup: json['ID_GROUP'] ?? 0,
-      idMessage: json['ID_MESSAGE'] ?? '',
-      idSender: json['ID_SENDER'] ?? 0,
-      fullNameUser: json['FULLNAME_USER'] ?? '',
-      content: json['CONTENT'] ?? '',
-      replyToID: json['REPLY_TO_ID'] ?? 0,
-      replyToContent: json['REPLY_TO_CONTENT'] ?? '',
-      dateSent: json['DATE_SENT'] ?? '',
-      typeMessage: json['TYPE_MESSAGE'] ?? 0,
-      type: json['TYPE'] ?? 0,
-      statusMess: json['STATUS_MESS'] ?? 0,
-      fileName: json['FILE_NAME'] ?? '',
-      fileNameCode: json['FILE_NAME_CODE'] ?? '',
+      idGroup: json['idGroup'] ?? json['ID_GROUP'] ?? 0,
+      idMessage: _s(json['idMessage'] ?? json['ID_MESSAGE']),
+      idSender: json['idSender'] ?? json['ID_SENDER'] ?? 0,
+      fullNameUser: _s(json['fullnameUser'] ?? json['FULLNAME_USER']),
+      content: _s(json['content'] ?? json['CONTENT']),
+      replyToID: _s(json['replyToId'] ?? json['REPLYTOID']),
+      replyToContent: _s(json['replyToContent'] ?? json['REPLY_TO_CONTENT']),
+      dateSent: _s(json['dateSent'] ?? json['DATE_SENT']),
+      typeMessage: json['typeMessage'] ?? json['TYPE_MESSAGE'] ?? 0,
+      type: json['type'] ?? json['TYPE'] ?? 0,
+      statusMess: json['statusMes'] ?? json['STATUS_MES'] ?? 0,
+      fileName: _s(json['filename'] ?? json['FILE_NAME']),
+      fileNameCode: _s(json['filenameCode'] ?? json['FILE_NAME_CODE']),
     );
   }
 }
