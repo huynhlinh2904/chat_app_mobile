@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
       ),
       //home: CreateGroupMockupScreen(),
       //home: CreateProjectGroupScreen(),
-      initialRoute: '/chat_create_group',
+      initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const ChatLoginPage_DEV(),

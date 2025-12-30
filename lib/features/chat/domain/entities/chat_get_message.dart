@@ -39,6 +39,12 @@ class ChatGetMessage {
         required this.fileNameCode,
       });
 
+  bool get hasReply =>
+      replyToID != null &&
+          replyToID!.isNotEmpty &&
+          replyToContent != null &&
+          replyToContent!.isNotEmpty;
+
   /// ✅ Parse từ JSON (SignalR / API)
   factory ChatGetMessage.fromJson(Map<String, dynamic> json) {
     return ChatGetMessage(

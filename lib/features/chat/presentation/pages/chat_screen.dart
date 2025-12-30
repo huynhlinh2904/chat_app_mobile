@@ -41,6 +41,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   DateTime? _lastLoadTime;
   int? idGroup;
   String? groupName;
+  final List<File> _selectedFiles = [];
 
   @override
   void initState() {
@@ -107,7 +108,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     // detect direction (reverse:true → scroll UI lên = pos tăng)
-    final bool scrollingUp = pos > _lastPixel!;
     final bool scrollingDown = pos < _lastPixel!;
 
     _lastPixel = pos;
@@ -365,16 +365,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  // 🔹 Cuộn xuống đáy (tin mới)
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (!_scrollController.hasClients) return
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-    });
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
   }
 
   // 🔹 Gửi file/ảnh
@@ -412,19 +409,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     );
   }
-
-  void _handleFilePicked(File file) async {
-    debugPrint("📎 [FilePicker] ${file.path}");
-    final idUser = await LocalStorageService.getIDUser();
-    final fullName = await LocalStorageService.getFullNameUser();
-    ref.read(chatMessageProvider.notifier).appendLocalMessage(
-      idGroup: idGroup ?? 0,
-      content: '📎 ${file.path.split('/').last}',
-      idSender: idUser ?? 0,
-      fullNameUser: fullName ?? 'Unknown',
-      typeMessage: 1,
-    );
+  void _handleFilePicked(File file) {
+    setState(() {
+      _selectedFiles.add(file);
+    });
   }
+  // void _handleFilePicked(File file) async {
+  //   debugPrint("📎 [FilePicker] ${file.path}");
+  //   final idUser = await LocalStorageService.getIDUser();
+  //   final fullName = await LocalStorageService.getFullNameUser();
+  //   ref.read(chatMessageProvider.notifier).appendLocalMessage(
+  //     idGroup: idGroup ?? 0,
+  //     content: '📎 ${file.path.split('/').last}',
+  //     idSender: idUser ?? 0,
+  //     fullNameUser: fullName ?? 'Unknown',
+  //     typeMessage: 1,
+  //   );
+  // }
 
   // 🔹 UI render
   @override
@@ -605,6 +606,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           // ✅ Input row (luôn hiển thị)
           Row(
             children: [
+              // 📎 Attachment button
+              IconButton(
+                onPressed: _showAttachmentOptions,
+                icon: const Icon(
+                  Icons.attach_file,
+                  color: Colors.deepPurple,
+                ),
+              ),
               Expanded(
                 child: TextField(
                   controller: _messageController,
